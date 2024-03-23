@@ -21,55 +21,31 @@ const SignUpForm = ({ navigation }) => {
 
   const signUp = async () => {
     try {
-      // Kiểm tra số điện thoại
-      if (!soDienThoai) {
-        alert("Lỗi! Số điện thoại không được để trống");
-        return;
-      } else if (soDienThoai.length !== 10) {
-        alert("Lỗi! Số điện thoại phải có 10 số");
-        return;
-      } else if (!soDienThoai.match(/^(0)[0-9]{9}$/)) {
-        alert("Lỗi! Số điện thoại phải có định dạng số 0 đầu tiên");
-        return;
-      }
-
-      // Kiểm tra tên
-      if (!hoTen.match(/^[a-zA-ZÀ-ỹ ]+$/)) {
-        alert("Lỗi", "Tên không được rỗng");
-        return;
-      }
-
-      // Kiểm tra mật khẩu
-      if (!matKhau.match(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[0-9a-zA-Z]+$/)) {
-        alert("Lỗi", "Mật khẩu phải có chữ hoa, chữ thường và số");
-        return;
-      }
-
       if (matKhau !== nhapLaiMatKhau) {
-        alert("Lỗi", "Mật khẩu nhập lại không khớp");
+        Alert.alert("Lỗi", "Mật khẩu nhập lại không khớp");
         return;
       }
+      // const checkParams = {
+      //   TableName: "Users",
+      //   Key: {
+      //     soDienThoai: soDienThoai,
+      //   },
+      // };
 
-      const checkParams = {
-        TableName: "Users",
-        Key: {
-          soDienThoai: soDienThoai,
-        },
-      };
+      // const checkResult = await dynamoDB.get(checkParams).promise();
+
+      // // Nếu số điện thoại đã tồn tại, hiển thị cảnh báo và không thực hiện đăng ký
+      // if (checkResult.Item) {
+      //   Alert.alert("Lỗi", "Số điện thoại đã được đăng ký trước đó");
+      //   return;
+      // }
 
       const dynamoDB = new DynamoDB.DocumentClient({
         region: REGION,
         accessKeyId: ACCESS_KEY_ID,
         secretAccessKey: SECRET_ACCESS_KEY,
       });
-
-      const checkResult = await dynamoDB.get(checkParams).promise();
-
-      if (checkResult.Item) {
-        alert("Lỗi", "Số điện thoại đã được đăng ký trước đó");
-        return;
-      }
-
+      // Tạo item để ghi vào DynamoDB
       const params = {
         TableName: "Users",
         Item: {
@@ -79,9 +55,9 @@ const SignUpForm = ({ navigation }) => {
         },
       };
 
+      // Ghi dữ liệu vào DynamoDB
       await dynamoDB.put(params).promise();
       alert("Đăng ký thành công");
-      navigation.navigate("LoginForm");
     } catch (error) {
       console.error("Lỗi khi đăng ký:", error);
       alert("Đăng ký thất bại");
