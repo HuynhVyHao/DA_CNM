@@ -3,13 +3,22 @@ import React from "react";
 import Icon from "react-native-vector-icons/AntDesign";
 import { LinearGradient } from "expo-linear-gradient";
 import IconAnt from "react-native-vector-icons/AntDesign";
-
-
+import * as ImagePicker from "expo-image-picker";
+import { DynamoDB, S3 } from "aws-sdk";
+import {
+  ACCESS_KEY_ID,
+  SECRET_ACCESS_KEY,
+  REGION,
+  S3_BUCKET_NAME,
+  DYNAMODB_TABLE_NAME,
+} from "@env";
+import { useState } from "react";
 
 
 
 const HomeScreen = ({  navigation,route }) => {
-
+  const {user}=route.params
+  const [avatarUri, setAvatarUri] = useState(user?.avatarUser);
 
   return (
     <LinearGradient
@@ -23,8 +32,13 @@ const HomeScreen = ({  navigation,route }) => {
       <View style={styles.container}>
         <View style={styles.tabBar}>
           <Pressable>
-            <Image source={require('../../assets/img/iconHomeScreen/Avatar.png')}
-                   style={styles.imgUser}
+          <Image
+              style={styles.imgUser}
+              source={
+                avatarUri
+                  ? { uri: avatarUri }
+                  : require("../../assets/img/iconHomeScreen/icons8-chat-30 (1) 1.png")
+              }
             />
           </Pressable>
           <Pressable>
@@ -104,8 +118,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   imgUser:{
-    width: 50,
-    height:50,
+    width: 60,
+    height:60,
+    borderRadius:50,
   },
   imgChat:{
     marginTop:30,
