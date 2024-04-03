@@ -7,39 +7,29 @@ import {
   View,
   Pressable,
   Alert,
+  TouchableOpacity,
+  Image
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { DynamoDB } from "aws-sdk";
 import { useFonts } from "expo-font";
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION } from "@env";
+import * as ImagePicker from 'expo-image-picker';
 
 const SignUpForm = ({ navigation }) => {
   const [hoTen, setHoTen] = useState("");
   const [soDienThoai, setSoDienThoai] = useState("");
   const [matKhau, setMatKhau] = useState("");
   const [nhapLaiMatKhau, setNhapLaiMatKhau] = useState("");
+  const [imageUri, setImageUri] = useState(null);
 
   const signUp = async () => {
     try {
       if (matKhau !== nhapLaiMatKhau) {
-        Alert.alert("Lỗi", "Mật khẩu nhập lại không khớp");
+        alert("Lỗi", "Mật khẩu nhập lại không khớp");
         return;
       }
-      // const checkParams = {
-      //   TableName: "Users",
-      //   Key: {
-      //     soDienThoai: soDienThoai,
-      //   },
-      // };
-
-      // const checkResult = await dynamoDB.get(checkParams).promise();
-
-      // // Nếu số điện thoại đã tồn tại, hiển thị cảnh báo và không thực hiện đăng ký
-      // if (checkResult.Item) {
-      //   Alert.alert("Lỗi", "Số điện thoại đã được đăng ký trước đó");
-      //   return;
-      // }
-
+      
       const dynamoDB = new DynamoDB.DocumentClient({
         region: REGION,
         accessKeyId: ACCESS_KEY_ID,
@@ -52,6 +42,8 @@ const SignUpForm = ({ navigation }) => {
           soDienThoai: soDienThoai,
           hoTen: hoTen,
           matKhau: matKhau,
+          // Thêm đường dẫn ảnh vào dữ liệu
+          avatarUrl: imageUri
         },
       };
 
@@ -61,6 +53,19 @@ const SignUpForm = ({ navigation }) => {
     } catch (error) {
       console.error("Lỗi khi đăng ký:", error);
       alert("Đăng ký thất bại");
+    }
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.cancelled) {
+      setImageUri(result.uri);
     }
   };
 
@@ -89,6 +94,10 @@ const SignUpForm = ({ navigation }) => {
       >
         Đăng ký
       </Text>
+      {imageUri && <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginBottom: 10 }} />}
+      <TouchableOpacity onPress={pickImage}>
+        <Text style={{ color: '#FFF' }}>Chọn ảnh</Text>
+      </TouchableOpacity>
       <TextInput
         style={{ ...styles.inputHoTen, color: "#000" }}
         placeholder="Họ và Tên"

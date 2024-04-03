@@ -9,20 +9,32 @@ import {
   Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFonts } from "expo-font";
 import { DynamoDB } from "aws-sdk";
+import { useFonts } from "expo-font";
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION } from "@env";
 
-const LoginForm = ({ navigation }) => {
+const SignUpForm = ({ navigation }) => {
   const [fontsLoaded] = useFonts({
     "keaniaone-regular": require("../../assets/fonts/KeaniaOne-Regular.ttf"),
   });
 
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [password, setPassword] = useState("");
+  const [hoTen, setHoTen] = useState("");
+  const [soDienThoai, setSoDienThoai] = useState("");
+  const [matKhau, setMatKhau] = useState("");
+  const [nhapLaiMatKhau, setNhapLaiMatKhau] = useState("");
 
-  const handleLogin = async () => {
+  const signUp = async () => {
     try {
+      if (!hoTen || !soDienThoai || !matKhau || !nhapLaiMatKhau) {
+        alert("Lỗi", "Vui lòng điền đầy đủ thông tin");
+        return;
+      }
+
+      if (matKhau !== nhapLaiMatKhau) {
+        alert("Lỗi", "Mật khẩu nhập lại không khớp");
+        return;
+      }
+
       const dynamoDB = new DynamoDB.DocumentClient({
         region: REGION,
         accessKeyId: ACCESS_KEY_ID,
@@ -31,83 +43,75 @@ const LoginForm = ({ navigation }) => {
 
       const params = {
         TableName: "Users",
-        Key: {
-          soDienThoai: phoneNumber,
+        Item: {
+          soDienThoai: soDienThoai,
+          hoTen: hoTen,
+          matKhau: matKhau,
         },
       };
 
-      const userData = await dynamoDB.get(params).promise();
-
-      if (!userData.Item) {
-        // User not found
-        Alert.alert("Login Failed", "Invalid phone number or password");
-        return;
-      }
-
-      // Check if password matches
-      if (userData.Item.matKhau !== password) {
-        Alert.alert("Login Failed", "Invalid phone number or password");
-        return;
-      }
-
-      // Authentication successful
-      navigation.navigate("HomeScreen", { user: userData.Item });
+      await dynamoDB.put(params).promise();
+      alert("Thông báo", "Đăng ký thành công");
+      // Sau khi đăng ký thành công, có thể chuyển hướng đến màn hình đăng nhập
+      // navigation.navigate("LoginScreen");
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Lỗi khi đăng ký:", error);
+      alert("Lỗi", "Đăng ký thất bại");
     }
   };
 
   if (!fontsLoaded) {
-    return undefined;
+    return null;
   }
 
   return (
     <LinearGradient
-    colors={["#4AD8C7", "#B728A9"]}
-    style={styles.background}
-  >
-    <View style={styles.container}>
-     
-      <View style={styles.logo}>
-        <Text style={styles.txtLogo}>4MChat</Text>
-      </View>
-
-      <TextInput
-        style={{ ...styles.inputSdt, color: "#000" }}
-        placeholder="Số điện thoại"
-        onChangeText={(text) => setPhoneNumber(text)}
-        value={phoneNumber}
-      />
-      <TextInput
-        style={{ ...styles.inputPass, color: "#000" }}
-        placeholder="Mật khẩu"
-        secureTextEntry
-        onChangeText={(text) => setPassword(text)}
-        value={password}
-      />
-      <Text
-        style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
-        onPress={() => {
-          // Implement the logic for handling forgotten password
-          Alert.alert("Forgot Password", "Feature coming soon");
-        }}
-      >
-        Quên mật khẩu?
-      </Text>
-      <Pressable onPress={handleLogin} style={styles.btnLogin}>
-        <Text style={styles.txtLogin}>Đăng Nhập</Text>
-      </Pressable>
-    </View>
+      colors={["#4AD8C7", "#B728A9"]}
+      style={styles.background}
+    >
+      <SafeAreaView style={styles.container}>
+        <View style={styles.logo}>
+          <Text style={styles.txtLogo}>4MChat</Text>
+        </View>
+        <Text style={styles.title}>Đăng ký</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Họ và Tên"
+          onChangeText={(text) => setHoTen(text)}
+          value={hoTen}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Số điện thoại"
+          onChangeText={(text) => setSoDienThoai(text)}
+          value={soDienThoai}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Mật khẩu"
+          secureTextEntry={true}
+          onChangeText={(text) => setMatKhau(text)}
+          value={matKhau}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Nhập lại mật khẩu"
+          secureTextEntry={true}
+          onChangeText={(text) => setNhapLaiMatKhau(text)}
+          value={nhapLaiMatKhau}
+        />
+        <Pressable style={styles.button} onPress={signUp}>
+          <Text style={styles.buttonText}>Đăng Ký</Text>
+        </Pressable>
+      </SafeAreaView>
     </LinearGradient>
   );
 };
 
-export default LoginForm;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent:"center",
+    justifyContent: "center",
     alignItems: "center",
   },
   background: {
@@ -117,7 +121,7 @@ const styles = StyleSheet.create({
   },
   txtLogo: {
     color: "#fff",
-fontSize: 64,
+    fontSize: 64,
     fontFamily: "keaniaone-regular",
   },
   logo: {
@@ -128,38 +132,35 @@ fontSize: 64,
     backgroundColor: "rgba(217, 217, 217, 0.50)",
     marginTop: 48,
   },
-  inputSdt: {
+  title: {
+    color: "#F5EEEE",
+    fontSize: 40,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  input: {
     width: 318,
     height: 46,
     backgroundColor: "rgba(255, 255, 255, 0.80)",
-    color: "#BCB2B2",
+    color: "#000",
     fontSize: 16,
     borderRadius: 10,
     paddingLeft: 10,
-    marginTop: 36,
+    marginBottom: 20,
   },
-  inputPass: {
-    width: 318,
-    height: 46,
-    backgroundColor: "rgba(255, 255, 255, 0.80)",
-    color: "#BCB2B2",
-    fontSize: 16,
-    borderRadius: 10,
-    paddingLeft: 10,
-    marginTop: 36,
-  },
-  btnLogin: {
+  button: {
     width: 200,
     height: 50,
     borderRadius: 13,
     backgroundColor: "rgba(117, 40, 215, 0.47)",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 40,
   },
-  txtLogin: {
+  buttonText: {
     color: "#FFF",
     fontSize: 24,
     fontWeight: "bold",
   },
 });
+
+export default SignUpForm;
