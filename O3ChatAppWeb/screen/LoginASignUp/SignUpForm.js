@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, TextInput, View, Pressable, Alert, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { DynamoDB } from "aws-sdk";
+import { DynamoDB,S3 } from "aws-sdk";
 import { useFonts } from "expo-font";
 import { useNavigation } from '@react-navigation/native'; // Import thư viện useNavigation
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION } from "@env";
@@ -22,20 +22,29 @@ const SignUpForm = () => {
         alert("Lỗi", "Mật khẩu nhập lại không khớp");
         return;
       }
+      if (!imageUri) {
+        alert("Vui lòng chọn ảnh đại diện");
+        return;
+      }
       
+      const imageUrl = await uploadImageToS3(imageUri);
+      if (!imageUrl) {
+        alert("Lỗi khi tải ảnh lên S3");
+        return;
+      }
       const dynamoDB = new DynamoDB.DocumentClient({
         region: REGION,
         accessKeyId: ACCESS_KEY_ID,
         secretAccessKey: SECRET_ACCESS_KEY,
       });
-      
+     
       const params = {
         TableName: "Users",
         Item: {
           soDienThoai: soDienThoai,
           hoTen: hoTen,
           matKhau: matKhau,
-          avatarUrl: imageUri
+          avatarUrl: imageUrl
         },
       };
 
@@ -48,6 +57,33 @@ const SignUpForm = () => {
       alert("Đăng ký thất bại");
     }
   };
+  const uploadImageToS3 = async (fileUri) => {
+    const s3 = new S3({
+      credentials: {
+        accessKeyId: ACCESS_KEY_ID,
+        secretAccessKey: SECRET_ACCESS_KEY,
+      },
+      region: REGION,
+    });
+
+    const response = await fetch(fileUri);
+    const blob = await response.blob();
+
+    const params = {
+      Bucket: "longs3",
+      Key: "avatar_" + new Date().getTime() + ".jpg", // Đổi tên file thành một tên duy nhất
+      Body: blob,
+      ContentType: "image/jpeg/jfif", // Định dạng của file
+    };
+
+    try {
+      const data = await s3.upload(params).promise();
+      return data.Location;
+    } catch (error) {
+      console.error("Lỗi khi tải ảnh lên S3:", error);
+      return null;
+    }
+  };
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -57,8 +93,8 @@ const SignUpForm = () => {
       quality: 1,
     });
 
-    if (!result.cancelled) {
-      setImageUri(result.uri);
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
     }
   };
 
@@ -77,10 +113,12 @@ const SignUpForm = () => {
           <Text style={styles.txtLogo}>4MChat</Text>
         </View>
         <Text style={{ color: "#F5EEEE", fontSize: 40, fontWeight: "bold" }}>Đăng ký</Text>
-        {imageUri && <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginBottom: 10 }} />}
-        <TouchableOpacity onPress={pickImage}>
-          <Text style={{ color: '#FFF' }}>Chọn ảnh</Text>
-        </TouchableOpacity>
+        <View style={styles.imageContainer}>
+        <Pressable onPress={pickImage}>
+          <Text style={{ paddingVertical: 10,paddingHorizontal: 20, color: '#FFF' ,marginTop:20,borderRadius:30,backgroundColor:"rgba(117, 40, 215, 0.47)"}}>Chọn ảnh</Text>
+        </Pressable>
+        {imageUri && <Image source={{ uri: imageUri }} style={{ marginLeft:30,width: 70, height: 70,borderRadius: 30, marginTop: 20 }} />}
+        </View>
         <TextInput
           style={{ ...styles.inputHoTen, color: "#000" }}
           placeholder="Họ và Tên"
@@ -112,6 +150,10 @@ const SignUpForm = () => {
 };
 
 const styles = StyleSheet.create({
+  imageContainer: {
+    flexDirection: 'row', // Sắp xếp các phần tử theo hàng ngang
+    alignItems: 'center', // Căn chỉnh các phần tử theo chiều dọc
+  },
   container: {
     flex: 1,
     justifyContent:"center",
@@ -123,6 +165,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   txtLogo: {
+    margintop:20,
     color: "#fff",
     fontSize: 64,
     fontFamily: "keaniaone-regular",
@@ -182,7 +225,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(117, 40, 215, 0.47)",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 40,
+    marginTop: 30,
   },
   txtSignUp: {
     color: "#FFF",

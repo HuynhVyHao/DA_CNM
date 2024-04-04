@@ -1,10 +1,14 @@
 import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View, Image, TextInput, Modal } from "react-native";
+import { Alert, Pressable, StyleSheet,SafeAreaView, Text, View, Image, TextInput, Modal } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from 'expo-image-picker';
-
+import FriendScreen from "./FriendScreen";
+import Screen2 from "./Screen2";
+import IconAnt from "react-native-vector-icons/AntDesign";
+import Icon from "react-native-vector-icons/AntDesign";
 const HomeScreen = ({ navigation, route }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalVisible2, setModalSetting] = useState(false);
   const [avatarUri, setAvatarUri] = useState(require('../../assets/img/iconHomeScreen/Avatar.png'));
   const [searchText, setSearchText] = useState('');
   const [username, setUsername] = useState('Huỳnh Vỹ Hào');
@@ -15,7 +19,14 @@ const HomeScreen = ({ navigation, route }) => {
   const [editingBirthday, setEditingBirthday] = useState(false);
   const [editingPhoneNumber, setEditingPhoneNumber] = useState(false);
   const [editingGender, setEditingGender] = useState(false);
-
+  const [select, setSelect] = useState(1);
+  const renderScreen = () => {
+    if (select === 1) {
+      return <Screen2/>;
+    } else if (select === 2) {
+      return <FriendScreen/>;
+    }
+  };
   const selectAvatar = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -48,13 +59,13 @@ const HomeScreen = ({ navigation, route }) => {
               style={styles.imgUser}
             />
           </Pressable>
-          <Pressable>
+          <Pressable onPress={() => setSelect(1)} style={[styles.tabItem, select === 1]}>
             <Image source={require('../../assets/img/iconHomeScreen/icons8-chat-30 (1) 1.png')} style={styles.imgChat} />
           </Pressable>
-          <Pressable>
+          <Pressable onPress={() => setSelect(2)} style={[styles.tabItem, select === 2]}>
             <Image source={require('../../assets/img/iconHomeScreen/icons8-phonebook-24 1.png')} style={styles.imgPhoneBook} />
           </Pressable>
-          <Pressable>
+          <Pressable onPress={() => setModalSetting(true)}>
             <Image source={require('../../assets/img/iconHomeScreen/icons8-setting-50 (1) 1.png')} style={styles.imgSetting} />
           </Pressable>
         </View>
@@ -74,14 +85,19 @@ const HomeScreen = ({ navigation, route }) => {
                 value={searchText}
               />
             </View>
-            <Pressable>
-              <Image source={require("../../assets/img/iconHomeScreen/user-add 1.png")} style={styles.imgAdd} />
+            <Pressable style={styles.pressableContainer}>
+            <IconAnt name="adduser" size="40px" color="red" />
+             
             </Pressable>
-            <Pressable>
-              <Image source={require("../../assets/img/iconHomeScreen/users-medical 1.png")} style={styles.imgAdd} />
+            <Pressable style={styles.pressableContainer2}>
+              <IconAnt name="addusergroup" size="40px" color="red"  />
+              {/* <Image source={require("../../assets/img/iconHomeScreen/users-medical 1.png")} style={styles.imgAdd} /> */}
             </Pressable>
           </View>
           <View style={styles.divider} />
+          <SafeAreaView style={styles.screenContainer}>
+              {select === 1 ? <Screen2/> : <FriendScreen/>}
+          </SafeAreaView>  
         </View>
         <View style={styles.dividerVertical} />
 
@@ -168,6 +184,25 @@ const HomeScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible2}
+        onRequestClose={() => {
+          Alert.alert('Modal has been closed.');
+          setModalSetting(!modalVisible2);
+        }}>
+        <View style={styles.viewSetting}>
+          <View style={styles.modalSetting}>
+          <Pressable style={{marginLeft:20}}
+              onPress={() => setModalSetting(!modalVisible2)}>
+              <Text>X</Text>
+          </Pressable>
+            <Text style={styles.modalText}>Đăng xuất</Text>
+            
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -175,6 +210,40 @@ const HomeScreen = ({ navigation, route }) => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
+  pressableContainer:{
+    flexDirection: 'row', 
+    alignItems: 'center',
+    marginLeft:10
+  },
+  pressableContainer2:{
+    flexDirection: 'row', 
+    alignItems: 'center',
+    marginLeft:5
+  },
+  textSetting:{
+    marginLeft:10
+  },
+  viewSetting:{
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 22,
+  },
+  modalSetting:{
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
   centeredView: {
     flex: 1,
     justifyContent: 'center',
@@ -258,7 +327,7 @@ const styles = StyleSheet.create({
     width: 400,
   },
   chatScreen: {
-    width: 900,
+    width: 700,
   },
   chatInfo: {
     textAlign: 'center',
