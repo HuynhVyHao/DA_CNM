@@ -20,6 +20,7 @@ const LoginForm = ({ navigation }) => {
 
   const [soDienThoai, setSoDienThoai] = useState("");
   const [matKhau, setMatKhau] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     try {
@@ -30,9 +31,10 @@ const LoginForm = ({ navigation }) => {
 
       // Kiểm tra số điện thoại có 10 số và bắt đầu bằng số 0
       if (!soDienThoai.match(/^(0)[0-9]{9}$/)) {
-        alert( "Số điện thoại không hợp lệ");
+        alert("Số điện thoại không hợp lệ");
         return;
       }
+
       const dynamoDB = new DynamoDB.DocumentClient({
         region: REGION,
         accessKeyId: ACCESS_KEY_ID,
@@ -50,16 +52,13 @@ const LoginForm = ({ navigation }) => {
 
       if (!userData.Item) {
         // User not found
-        alert(
-          "Login Failed",
-          "Số điện thoại hoặc mật khẩu không tồn tại"
-        );
+        alert("Số điện thoại hoặc mật khẩu không tồn tại");
         return;
       }
 
       // Check if password matches
       if (userData.Item.matKhau !== matKhau) {
-        alert("Login Failed ! Mật khẩu không chính xác");
+        alert("Mật khẩu không chính xác");
         return;
       }
 
@@ -76,41 +75,50 @@ const LoginForm = ({ navigation }) => {
 
   return (
     <LinearGradient
-        colors={["#4AD8C7", "#B728A9"]}
-        style={styles.background}
-      >
-    <View style={styles.container}>
-      
-      <View style={styles.logo}>
-        <Text style={styles.txtLogo}>4MChat</Text>
-      </View>
+      colors={["#4AD8C7", "#B728A9"]}
+      style={styles.background}
+    >
+      <View style={styles.container}>
+        <View style={styles.logo}>
+          <Text style={styles.txtLogo}>4MChat</Text>
+        </View>
 
-      <TextInput
-        style={{ ...styles.inputSdt, color: "#000" }}
-        placeholder="Số điện thoại"
-        onChangeText={(text) => setSoDienThoai(text)}
-        value={soDienThoai}
-      />
-      <TextInput
-        style={{ ...styles.inputPass, color: "#000" }}
-        placeholder="Mật khẩu"
-        secureTextEntry
-        onChangeText={(text) => setMatKhau(text)}
-        value={matKhau}
-      />
-      <Text
-        style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
-        onPress={() => {
-          // Implement the logic for handling forgotten password
-          alert("Forgot Password", "Feature coming soon");
-        }}
-      >
-        Quên mật khẩu?
-      </Text>
-      <Pressable onPress={handleLogin} style={styles.btnLogin}>
-        <Text style={styles.txtLogin}>Đăng Nhập</Text>
-      </Pressable>
-    </View>
+        <TextInput
+          style={{ ...styles.inputSdt, color: "#000" }}
+          placeholder="Số điện thoại"
+          onChangeText={(text) => setSoDienThoai(text)}
+          value={soDienThoai}
+        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={{ ...styles.inputPass, color: "#000" }}
+            placeholder="Mật khẩu"
+            secureTextEntry={!showPassword}
+            onChangeText={(text) => setMatKhau(text)}
+            value={matKhau}
+          />
+          <Pressable
+            style={styles.togglePassword}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={styles.togglePasswordText}>
+              {showPassword ? "Ẩn" : "Hiện"}
+            </Text>
+          </Pressable>
+        </View>
+        <Text
+          style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
+          onPress={() => {
+            // Implement the logic for handling forgotten password
+            alert("Forgot Password", "Feature coming soon");
+          }}
+        >
+          Quên mật khẩu?
+        </Text>
+        <Pressable onPress={handleLogin} style={styles.btnLogin}>
+          <Text style={styles.txtLogin}>Đăng Nhập</Text>
+        </Pressable>
+      </View>
     </LinearGradient>
   );
 };
@@ -120,7 +128,7 @@ export default LoginForm;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent:"center",
+    justifyContent: "center",
     alignItems: "center",
   },
   background: {
@@ -152,14 +160,31 @@ const styles = StyleSheet.create({
     marginTop: 36,
   },
   inputPass: {
-    width: 318,
+    flex: 1,
     height: 46,
     backgroundColor: "rgba(255, 255, 255, 0.80)",
     color: "#BCB2B2",
     fontSize: 16,
     borderRadius: 10,
     paddingLeft: 10,
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: 318,
+    height: 46,
+    backgroundColor: "rgba(255, 255, 255, 0.80)",
+    borderRadius: 10,
+    paddingLeft: 10,
     marginTop: 36,
+  },
+  togglePassword: {
+    paddingHorizontal: 10,
+    borderLeftWidth: 1,
+    borderColor: "#BCB2B2",
+  },
+  togglePasswordText: {
+    color: "#BCB2B2",
   },
   btnLogin: {
     width: 200,
