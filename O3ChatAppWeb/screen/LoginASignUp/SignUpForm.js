@@ -1,27 +1,20 @@
 import React, { useState } from "react";
-import {
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  Pressable,
-  Alert,
-  TouchableOpacity,
-  Image
-} from "react-native";
+import { StyleSheet, Text, TextInput, View, Pressable, Alert, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { DynamoDB } from "aws-sdk";
 import { useFonts } from "expo-font";
+import { useNavigation } from '@react-navigation/native'; // Import thư viện useNavigation
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION } from "@env";
 import * as ImagePicker from 'expo-image-picker';
 
-const SignUpForm = ({ navigation }) => {
+const SignUpForm = () => {
   const [hoTen, setHoTen] = useState("");
   const [soDienThoai, setSoDienThoai] = useState("");
   const [matKhau, setMatKhau] = useState("");
   const [nhapLaiMatKhau, setNhapLaiMatKhau] = useState("");
   const [imageUri, setImageUri] = useState(null);
+
+  const navigation = useNavigation(); // Sử dụng hook useNavigation để lấy đối tượng navigation
 
   const signUp = async () => {
     try {
@@ -35,21 +28,21 @@ const SignUpForm = ({ navigation }) => {
         accessKeyId: ACCESS_KEY_ID,
         secretAccessKey: SECRET_ACCESS_KEY,
       });
-      // Tạo item để ghi vào DynamoDB
+      
       const params = {
         TableName: "Users",
         Item: {
           soDienThoai: soDienThoai,
           hoTen: hoTen,
           matKhau: matKhau,
-          // Thêm đường dẫn ảnh vào dữ liệu
           avatarUrl: imageUri
         },
       };
 
-      // Ghi dữ liệu vào DynamoDB
       await dynamoDB.put(params).promise();
       alert("Đăng ký thành công");
+      
+      navigation.navigate('LoginForm'); // Chuyển hướng đến màn hình đăng nhập sau khi đăng ký thành công
     } catch (error) {
       console.error("Lỗi khi đăng ký:", error);
       alert("Đăng ký thất bại");
@@ -72,59 +65,48 @@ const SignUpForm = ({ navigation }) => {
   const [fontsLoaded] = useFonts({
     "keaniaone-regular": require("../../assets/fonts/KeaniaOne-Regular.ttf"),
   });
+  
   if (!fontsLoaded) {
     return null;
   }
+  
   return (
-    <LinearGradient
-        colors={["#4AD8C7", "#B728A9"]}
-        style={styles.background}
-      >
-    <View style={styles.container}>
-      
-      <View style={styles.logo}>
-        <Text style={styles.txtLogo}>4MChat</Text>
+    <LinearGradient colors={["#4AD8C7", "#B728A9"]} style={styles.background}>
+      <View style={styles.container}>
+        <View style={styles.logo}>
+          <Text style={styles.txtLogo}>4MChat</Text>
+        </View>
+        <Text style={{ color: "#F5EEEE", fontSize: 40, fontWeight: "bold" }}>Đăng ký</Text>
+        {imageUri && <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginBottom: 10 }} />}
+        <TouchableOpacity onPress={pickImage}>
+          <Text style={{ color: '#FFF' }}>Chọn ảnh</Text>
+        </TouchableOpacity>
+        <TextInput
+          style={{ ...styles.inputHoTen, color: "#000" }}
+          placeholder="Họ và Tên"
+          onChangeText={(text) => setHoTen(text)}
+        />
+        <TextInput
+          style={{ ...styles.inputSDT, color: "#000" }}
+          placeholder="Số điện thoại"
+          onChangeText={(text) => setSoDienThoai(text)}
+        />
+        <TextInput
+          style={{ ...styles.inputPass, color: "#000" }}
+          placeholder="Mật khẩu"
+          secureTextEntry={true}
+          onChangeText={(text) => setMatKhau(text)}
+        />
+        <TextInput
+          style={{ ...styles.inputConfirmPass, color: "#000" }}
+          placeholder="Nhập lại mật khẩu"
+          secureTextEntry={true}
+          onChangeText={(text) => setNhapLaiMatKhau(text)}
+        />
+        <Pressable style={styles.btnSignUp} onPress={signUp}>
+          <Text style={styles.txtSignUp}>Đăng Ký</Text>
+        </Pressable>
       </View>
-      <Text
-        style={{
-          color: "#F5EEEE",
-          fontSize: 40,
-          fontWeight: "bold",
-        }}
-      >
-        Đăng ký
-      </Text>
-      {imageUri && <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginBottom: 10 }} />}
-      <TouchableOpacity onPress={pickImage}>
-        <Text style={{ color: '#FFF' }}>Chọn ảnh</Text>
-      </TouchableOpacity>
-      <TextInput
-        style={{ ...styles.inputHoTen, color: "#000" }}
-        placeholder="Họ và Tên"
-        onChangeText={(text) => setHoTen(text)}
-      />
-      <TextInput
-        style={{ ...styles.inputSDT, color: "#000" }}
-        placeholder="Số điện thoại"
-        onChangeText={(text) => setSoDienThoai(text)}
-      />
-      <TextInput
-        style={{ ...styles.inputPass, color: "#000" }}
-        placeholder="Mật khẩu"
-        secureTextEntry={true}
-        onChangeText={(text) => setMatKhau(text)}
-      />
-      <TextInput
-style={{ ...styles.inputConfirmPass, color: "#000" }}
-        placeholder="Nhập lại mật khẩu"
-        secureTextEntry={true}
-        onChangeText={(text) => setNhapLaiMatKhau(text)}
-      />
-      <Pressable style={styles.btnSignUp} onPress={signUp}>
-        <Text style={styles.txtSignUp}>Đăng Ký</Text>
-      </Pressable>
-      
-    </View>
     </LinearGradient>
   );
 };
