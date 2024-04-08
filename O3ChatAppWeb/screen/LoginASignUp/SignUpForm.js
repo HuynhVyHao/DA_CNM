@@ -181,6 +181,9 @@ const SignUpForm = () => {
           <Text style={styles.txtSignUp}>Đăng Ký</Text>
         </Pressable>
       </View>
+      <Pressable style={styles.btnBack} onPress={() => navigation.goBack()}>
+          <Text style={styles.txtBack}>Quay lại</Text>
+        </Pressable>
     </LinearGradient>
   );
 };
@@ -189,6 +192,16 @@ const styles = StyleSheet.create({
   imageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  btnBack: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    padding: 10,
+  },
+  txtBack: {
+    color: '#FFF',
+    fontSize: 16,
   },
   container: {
     flex: 1,

@@ -18,6 +18,9 @@ import LoginForm from "./screen/LoginASignUp/LoginForm";
 import SignUpForm from "./screen/LoginASignUp/SignUpForm";
 import HomeScreen from "./screen/Inside/HomeScreen";
 import QRScanner from "./screen/Inside/QRScanner";
+import FriendScreen from "./screen/Inside/FriendScreen";
+import BoxChat from "./screen/Inside/BoxChat";
+
 
 const LoginASign = ({ navigation }) => {
   const [fontsLoaded] = useFonts({
@@ -102,7 +105,7 @@ export default function App() {
         initialRouteName="AnimationBackground"
         screenOptions={{ headerShown: false }}
       >
-         <Stack.Screen
+        <Stack.Screen
           name="AnimationBackground"
           component={AnimationBackground}
         />
@@ -112,9 +115,13 @@ export default function App() {
           component={LoginASign}
         />
         <Stack.Screen name="LoginForm" component={LoginForm} />
-        <Stack.Screen name="SignUpForm" component={SignUpForm} /> 
+        <Stack.Screen name="SignUpForm" component={SignUpForm} />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="QRScanner" component={QRScanner} />
+        <Stack.Screen name="FriendScreen" component={FriendScreen} />
+        <Stack.Screen name="BoxChat" component={BoxChat} />
+
+        
       </Stack.Navigator>
     </NavigationContainer>
   );

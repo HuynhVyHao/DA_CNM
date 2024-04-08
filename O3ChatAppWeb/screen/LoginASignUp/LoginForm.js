@@ -107,14 +107,15 @@ const LoginForm = ({ navigation }) => {
           </Pressable>
         </View>
         <Text
-          style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
-          onPress={() => {
-            // Implement the logic for handling forgotten password
-            alert("Forgot Password", "Feature coming soon");
-          }}
-        >
-          Quên mật khẩu?
-        </Text>
+  style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
+  onPress={() => {
+    // Chuyển hướng đến trang nhập số điện thoại để quên mật khẩu
+    navigation.navigate("ForgotPassword");
+  }}
+>
+  Quên mật khẩu?
+</Text>
+
         <Pressable onPress={handleLogin} style={styles.btnLogin}>
           <Text style={styles.txtLogin}>Đăng Nhập</Text>
         </Pressable>
