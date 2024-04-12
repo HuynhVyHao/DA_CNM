@@ -21,7 +21,7 @@ import {
 } from "@env";
 
 const HomeScreen = ({ navigation, route }) => {
-  const { user } = route.params;
+  const { user,friend} = route.params;
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisible2, setModalSetting] = useState(false);
   const [modalVisible3, setModalKetban] = useState(false);
@@ -32,12 +32,13 @@ const HomeScreen = ({ navigation, route }) => {
   const [birthday, setBirthday] = useState(user ? user.ngaySinh:'');
   const [gender, setGender] = useState(user ? user.gioiTinh:'');
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneUser,setPhoneUser]=useState(user?user.soDienThoai:'');
   const [editingUsername, setEditingUsername] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState(false);
   const [editingPhoneNumber, setEditingPhoneNumber] = useState(false);
   const [editingGender, setEditingGender] = useState(false);
   const [select, setSelect] = useState(1);
-
+  
 
   
   
@@ -78,6 +79,7 @@ const HomeScreen = ({ navigation, route }) => {
     accessKeyId: ACCESS_KEY_ID,
     secretAccessKey: SECRET_ACCESS_KEY,
   });
+  
   const searchUserByPhoneNumber = async (phoneNumber) => {
     if (phoneNumber === user.soDienThoai) {
       // Nếu số điện thoại nhập vào trùng với số điện thoại của người dùng đang đăng nhập
@@ -120,7 +122,7 @@ allowsEditing: true,
 
   const updateProfile = async () => {
     try {
-      if (!username || !birthday || !gender || !phoneNumber) {
+      if (!username || !birthday || !gender || !phoneUser) {
         alert("Vui lòng điền đầy đủ thông tin");
         return;
       }
@@ -139,7 +141,7 @@ allowsEditing: true,
         Bucket: 'haoiuh',
         Key: "avatar_" + new Date().getTime() + ".jpg",
         Body: blob,
-        ContentType: 'image/jpeg/png/jfif/jpg',
+        ContentType: 'image/jpeg',
         ACL: 'public-read', 
       };
       const s3 = new S3({
@@ -235,7 +237,8 @@ allowsEditing: true,
         <View style={styles.dividerVertical} />
 
         <SafeAreaView style={styles.chatScreen}>
-        <Text style={styles.modalText}>Thông tin cá nhân</Text>
+          {/* //<BoxChat friend={friend} message={message} user={user} navigation={navigation} /> */}
+          {/* <BoxChat friend={friend.soDienThoai} user={user.soDienThoai} /> */}
         </SafeAreaView>
       </View>
 
@@ -301,8 +304,8 @@ allowsEditing: true,
               <TextInput
                 style={styles.inputField}
                 placeholder="Số điện thoại"
-                value={phoneNumber}
-                onChangeText={text => setPhoneNumber(text)}
+                value={phoneUser}
+                onChangeText={text => setPhoneUser(text)}
                 editable={editingPhoneNumber}
                 onFocus={() => setEditingPhoneNumber(true)}
               />
