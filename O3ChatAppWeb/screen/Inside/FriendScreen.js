@@ -11,7 +11,7 @@ const dynamoDB = new AWS.DynamoDB.DocumentClient({
   secretAccessKey: SECRET_ACCESS_KEY,
 });
 
-const FriendScreen = ({ navigation, user}) => {
+const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -240,7 +240,7 @@ const FriendScreen = ({ navigation, user}) => {
 
       // Nếu có box chat cho cả hai khóa, chuyển đến màn hình BoxChat
       if (existingChatData.Responses["BoxChats"].length > 0) {
-        navigation.navigate("BoxChat", { friend, user });
+        showBoxChatInRightBar(friend, user);
         return;
       }
 
@@ -285,7 +285,7 @@ const FriendScreen = ({ navigation, user}) => {
       await dynamoDB.batchWrite(senderChatParams).promise();
 
       // Chuyển đến màn hình BoxChat với thông tin của người bạn
-      navigation.navigate("BoxChat", { friend, user });
+      showBoxChatInRightBar(friend, user);
     } catch (error) {
       console.error("Error handling chat with friend:", error);
     }

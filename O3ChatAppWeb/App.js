@@ -20,7 +20,8 @@ import HomeScreen from "./screen/Inside/HomeScreen";
 import QRScanner from "./screen/Inside/QRScanner";
 import FriendScreen from "./screen/Inside/FriendScreen";
 import BoxChat from "./screen/Inside/BoxChat";
-
+import CreateGroupScreen from "./screen/Inside/CreateGroupScreen";
+import Screen2 from "./screen/Inside/Screen2";
 
 const LoginASign = ({ navigation }) => {
   const [fontsLoaded] = useFonts({
@@ -120,8 +121,8 @@ export default function App() {
         <Stack.Screen name="QRScanner" component={QRScanner} />
         <Stack.Screen name="FriendScreen" component={FriendScreen} />
         <Stack.Screen name="BoxChat" component={BoxChat} />
-
-        
+        <Stack.Screen name="CreateGroupScreen" component={CreateGroupScreen} /> 
+        <Stack.Screen name="Screen2" component={Screen2} /> 
       </Stack.Navigator>
     </NavigationContainer>
   );

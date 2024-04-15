@@ -22,6 +22,7 @@ import {
 
 const HomeScreen = ({ navigation, route }) => {
   const { user,friend} = route.params;
+
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisible2, setModalSetting] = useState(false);
   const [modalVisible3, setModalKetban] = useState(false);
@@ -38,7 +39,13 @@ const HomeScreen = ({ navigation, route }) => {
   const [editingPhoneNumber, setEditingPhoneNumber] = useState(false);
   const [editingGender, setEditingGender] = useState(false);
   const [select, setSelect] = useState(1);
-  
+  const [boxChatData, setBoxChatData] = useState(null);
+
+  const showBoxChatInRightBar = (friend, user) => {
+    // Hiển thị BoxChat trong phần rightbar
+    setBoxChatData({ friend, user });
+  };
+
 
   
   
@@ -224,21 +231,27 @@ allowsEditing: true,
             <IconAnt name="adduser" size="40px" color="black" />
              
             </Pressable>
-            <Pressable style={styles.pressableContainer2}>
+            <Pressable style={styles.pressableContainer2}
+            onPress={() => navigation.navigate("CreateGroupScreen",{ user })}>
               <IconAnt name="addusergroup" size="40px" color="black"  />
             
             </Pressable>
           </View>
           <View style={styles.divider} />
           <SafeAreaView style={styles.screenContainer}>
-              {select === 1 ? <Screen2/> : <FriendScreen user={user} navigation={navigation} />}
+              {select === 1 ? <Screen2/> : <FriendScreen user={user} navigation={navigation} showBoxChatInRightBar={showBoxChatInRightBar}/>}
           </SafeAreaView>  
         </View>
         <View style={styles.dividerVertical} />
 
         <SafeAreaView style={styles.chatScreen}>
-          {/* //<BoxChat friend={friend} message={message} user={user} navigation={navigation} /> */}
-          {/* <BoxChat friend={friend.soDienThoai} user={user.soDienThoai} /> */}
+          {boxChatData && (
+            <BoxChat
+              friend={boxChatData.friend}
+              user={boxChatData.user}
+              onClose={() => setBoxChatData(null)}
+            />
+          )}
         </SafeAreaView>
       </View>
 
@@ -605,6 +618,7 @@ modalSetting:{
     width: 400,
   },
   chatScreen: {
+    flex:1,
     width: 700,
   },
   chatInfo: {

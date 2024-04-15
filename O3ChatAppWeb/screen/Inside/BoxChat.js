@@ -15,13 +15,16 @@ import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION } from "@env";
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
-const BoxChat = ({ navigation, route }) => {
-  const { friend, user } = route.params;
+
+const BoxChat = ({ friend,user }) => {
+  
+  //const { friend, user } = route.params;
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const scrollViewRef = useRef(null);
   const textInputRef = useRef(null);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isScrolledUp, setIsScrolledUp] = useState(false); // Thêm state để theo dõi việc cuộn lên
 
   const selectImage = async () => {
     try {
@@ -141,17 +144,7 @@ const BoxChat = ({ navigation, route }) => {
     secretAccessKey: SECRET_ACCESS_KEY,
   });
 
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        navigation.goBack();
-        return true;
-      }
-    );
-
-    return () => backHandler.remove();
-  }, [navigation]);
+  
 
   useEffect(() => {
     const interval = setInterval(fetchMessages, 500);
@@ -172,30 +165,37 @@ const BoxChat = ({ navigation, route }) => {
         : [];
 
       setMessages(senderMessages);
-      scrollToBottom();
+      //scrollToBottom();
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
   };
+
+  
+  const handleScroll = (event) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const currentOffset = contentOffset.y;
+    const maxOffset = contentSize.height - layoutMeasurement.height;
+  
+    setIsScrolledUp(currentOffset < maxOffset - 50); // Cập nhật trạng thái cuộn lên/xuống
+  
+    // Kiểm tra nếu đang cuộn đến đáy và có tin nhắn mới được thêm vào, thì mới gọi hàm scrollToEnd()
+    if (currentOffset >= maxOffset - 10 && messages.length > 0) {
+      scrollToBottom();
+    }
+  };
+
+  useEffect(() => {
+    if (!isScrolledUp) {
+      scrollToBottom();
+    }
+  }, [messages, isScrolledUp]);
 
   const scrollToBottom = () => {
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollToEnd({ animated: true });
     }
   };
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      "keyboardDidShow",
-      () => {
-        scrollToBottom();
-      }
-    );
-
-    return () => {
-      keyboardDidShowListener.remove();
-    };
-  }, []);
 
   const formatMessageTimestamp = (timestamp) => {
     const date = new Date(timestamp);
@@ -237,42 +237,38 @@ const BoxChat = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.btnBack} onPress={() => navigation.goBack()}>
-          <Text style={styles.txtBack}>Quay lại</Text>
-        </Pressable>
+        <Image source={{ uri: friend.avatarUrl }} style={styles.headerImg} />
         <Text style={styles.headerText}>{friend.hoTen}</Text>
       </View>
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
         ref={scrollViewRef}
+        onScroll={handleScroll} // Xử lý sự kiện scroll
+        scrollEventThrottle={16}
       >
         {messages.map((message, index) => (
-          <View
-            key={index}
-            style={[
-              styles.messageContainer,
-              {
-                alignSelf: message.isSender ? "flex-end" : "flex-start",
-                backgroundColor: message.isSender ? "#94e5f2" : "#dddddd",
-              },
-            ]}
-          >
-            {message.isSender && typeof message.content === 'string' && (
-              <Image source={{ uri: message.content }} style={styles.messageImage} />
-            )}
-            {!message.isSender && typeof message.content === 'string' && (
-              <Image source={{ uri: message.content }} style={styles.messageImage} />
-            )}
-            {typeof message.content === 'string' && (
-              <Text style={styles.messageTimestamp}>
-                {formatMessageTimestamp(message.timestamp)}
-              </Text>
-            )}
-            {typeof message.content === 'string' && (
-              <Text style={styles.messageText}>{message.content}</Text>
-            )}
-          </View>
-        ))}
+  <View
+    key={index}
+    style={[
+      styles.messageContainer,
+      {
+        alignSelf: message.isSender ? "flex-end" : "flex-start",
+        backgroundColor: message.isSender ? "#94e5f2" : "#dddddd",
+      },
+    ]}
+  >
+    {typeof message.content === 'string' && message.content.startsWith('http') ? (
+      <Image source={{ uri: message.content }} style={styles.messageImage} />
+    ) : (
+      <Text style={styles.messageText}>{message.content}</Text>
+    )}
+    {typeof message.content === 'string' && (
+      <Text style={styles.messageTimestamp}>
+        {formatMessageTimestamp(message.timestamp)}
+      </Text>
+    )}
+  </View>
+))}
       </ScrollView>
   
       <View style={styles.inputContainer}>
@@ -309,6 +305,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  headerImg:{
+    borderRadius:20,
+    width:50,
+    height:50
+  },
   sendImageButton: {
     width: 40,
     height: 40,
@@ -332,9 +333,8 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   header: {
-    flexDirection:"row",
-    justifyContent:"space-around",
-    alignItems: "center",
+    flexDirection: "row",
+    alignItems: "flex-start", // Để các phần tử nằm bên trái
     backgroundColor: "#4AD8C7",
     paddingVertical: 10,
     paddingHorizontal: 15,
