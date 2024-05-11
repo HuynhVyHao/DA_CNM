@@ -1,5 +1,4 @@
 import React, { useState,useEffect } from "react";
-import { useRoute } from '@react-navigation/native';
 import { Alert, Pressable, StyleSheet,SafeAreaView, Text, View, Image, TextInput, Modal } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from 'expo-image-picker';
@@ -40,15 +39,14 @@ const HomeScreen = ({ navigation, route }) => {
   const [editingGender, setEditingGender] = useState(false);
   const [select, setSelect] = useState(1);
   const [boxChatData, setBoxChatData] = useState(null);
-
-  const showBoxChatInRightBar = (friend, user) => {
-    // Hiển thị BoxChat trong phần rightbar
-    setBoxChatData({ friend, user });
+  const closeBoxChat = () => {
+    // Đóng hộp thoại
+    setBoxChatData(null);
   };
-
-
-  
-  
+  const showBoxChatInRightBar = (friend, user) => {
+  // Mở hộp thoại mới với dữ liệu của người bạn mới
+  setBoxChatData({ friend, user });
+  };
   const addFriend = async (friendPhoneNumber) => {
     try {
       const params = {
@@ -95,8 +93,6 @@ const HomeScreen = ({ navigation, route }) => {
       return;
     }
     
-  
-  
   const params = {
     TableName: 'Users',
     KeyConditionExpression: 'soDienThoai = :phoneNumber',
@@ -145,7 +141,7 @@ allowsEditing: true,
       const data = await fetch(avatarUri);
       const blob = await data.blob();
       const uploadParams = {
-        Bucket: 'haoiuh',
+        Bucket: 'longs3',
         Key: "avatar_" + new Date().getTime() + ".jpg",
         Body: blob,
         ContentType: 'image/jpeg',
@@ -239,7 +235,7 @@ allowsEditing: true,
           </View>
           <View style={styles.divider} />
           <SafeAreaView style={styles.screenContainer}>
-              {select === 1 ? <Screen2/> : <FriendScreen user={user} navigation={navigation} showBoxChatInRightBar={showBoxChatInRightBar}/>}
+              {select === 1 ? <Screen2 user={user} showBoxChatInRightBar={showBoxChatInRightBar}/> : <FriendScreen user={user} showBoxChatInRightBar={showBoxChatInRightBar}/>}
           </SafeAreaView>  
         </View>
         <View style={styles.dividerVertical} />
@@ -249,7 +245,7 @@ allowsEditing: true,
             <BoxChat
               friend={boxChatData.friend}
               user={boxChatData.user}
-              onClose={() => setBoxChatData(null)}
+              onClose={closeBoxChat}
             />
           )}
         </SafeAreaView>

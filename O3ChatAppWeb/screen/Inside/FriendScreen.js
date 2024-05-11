@@ -15,8 +15,7 @@ const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-
+  
   const fetchUser = async () => {
     try {
       // Replace "YOUR_USER_ID" with the actual user ID or key
@@ -143,7 +142,7 @@ const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
 
       // Lọc ra mảng friendRequests mới mà không chứa friendRequest cần xóa
       const updatedFriendRequests = requestResult.Item.friendRequests.filter(
-        (request) => request.email !== friendRequest.email
+        (request) => request.soDienThoai !== friendRequest.soDienThoai
       );
 
       // Cập nhật lại mảng friendRequests mới vào cơ sở dữ liệu
@@ -203,12 +202,15 @@ const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
   };
 
   const handleChatWithFriend = async (friend, user) => {
+    
     try {
+      
       if (!friend || !friend.soDienThoai || !user || !user.soDienThoai) {
         console.error("Invalid friend or user information");
         return;
       }
-
+      // Kiểm tra xem hộp thoại hiện tại có phải là hộp thoại cũ không
+    
       // Tạo khóa kết hợp từ số điện thoại của người gửi và người nhận
       const senderReceiverKey = `${user.soDienThoai}_${friend.soDienThoai}`;
       const receiverSenderKey = `${friend.soDienThoai}_${user.soDienThoai}`;
@@ -229,6 +231,7 @@ const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
         .promise();
 
       // Kiểm tra nếu không có dữ liệu hoặc dữ liệu không đúng định dạng
+      
       if (
         !existingChatData ||
         !existingChatData.Responses ||
@@ -297,21 +300,10 @@ const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
       fetchFriendRequests();
     }, [navigation])
   );
-
-
   useEffect(() => {
     fetchUser();
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchFriends();
-      fetchFriendRequests();
-    }, [navigation])
-  );
-
   // Rest of your code
-
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <Pressable

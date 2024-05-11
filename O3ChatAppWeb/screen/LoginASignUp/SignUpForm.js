@@ -19,6 +19,7 @@ const SignUpForm = () => {
 
   const signUp = async () => {
     try {
+
       if (soDienThoai.length !== 10 && soDienThoai.length !== 11) {
         alert("Số điện thoại phải có đủ 10 hoặc 11 số");
         return;
@@ -88,7 +89,7 @@ const SignUpForm = () => {
     const blob = await response.blob();
 
     const params = {
-      Bucket: "haoiuh",
+      Bucket: "longs3",
       Key: "avatar_" + new Date().getTime() + ".jpg",
       Body: blob,
       ContentType: "image/jpeg/jfif/png/gif",
