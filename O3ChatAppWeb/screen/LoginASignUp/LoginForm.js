@@ -110,7 +110,7 @@ const LoginForm = ({ navigation }) => {
   style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
   onPress={() => {
     // Chuyển hướng đến trang nhập số điện thoại để quên mật khẩu
-    navigation.navigate("ForgotPassword");
+    navigation.navigate("ForgotPasswordScreen");
   }}
 >
   Quên mật khẩu?

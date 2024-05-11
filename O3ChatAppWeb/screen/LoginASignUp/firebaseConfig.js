@@ -1,22 +1,20 @@
-// firebaseConfig.js
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB3iCFbKQ_UI6NbLlIPZ-BIEZQg-hf31dg",
-  authDomain: "vyhao-e4c83.firebaseapp.com",
-  databaseURL: "https://vyhao-e4c83-default-rtdb.firebaseio.com",
-  projectId: "vyhao-e4c83",
-  storageBucket: "vyhao-e4c83.appspot.com",
-  messagingSenderId: "1089773270749",
-  appId: "1:1089773270749:web:ccb1f37ef09287e5ea0d34",
-  measurementId: "G-WZX5F28H1G"
+  apiKey : "AIzaSyB3YLnBXhT2xOT_hCt8R_v2tZhUPRE7Pv4" , 
+  authDomain : "otp-vyhao.firebaseapp.com" , 
+  projectId : "otp-vyhao" , 
+  storageBucket : "otp-vyhao.appspot.com" , 
+  messagingSenderId : "448813187392" , 
+  appId : "1:448813187392:web:60965d840994f5872b7aa5" , 
+  measurementId : "G-PLXWDJHG1F" 
 };
-// Khởi tạo Firebase App
-// Khởi tạo Firebase App
-const firebaseApp = initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+} else {
+  firebase.app();
+}
+export { firebaseConfig };
 
-// Lấy đối tượng auth từ Firebase
-const auth = getAuth(firebaseApp);
-
-export { auth, firebaseApp };
