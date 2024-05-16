@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import FriendScreen from "./FriendScreen";
 import Screen2 from "./Screen2";
 import IconAnt from "react-native-vector-icons/AntDesign";
-
+import GroupChats from "./GroupChats";
 import BoxChat from './BoxChat'; // Import BoxChat component
 
 //import Icon from "react-native-vector-icons/AntDesign";
@@ -39,13 +39,23 @@ const HomeScreen = ({ navigation, route }) => {
   const [editingGender, setEditingGender] = useState(false);
   const [select, setSelect] = useState(1);
   const [boxChatData, setBoxChatData] = useState(null);
+  const [boxChatGroupData,setBoxChatGroupData]=useState(null);
   const closeBoxChat = () => {
     // Đóng hộp thoại
     setBoxChatData(null);
+    
+  };
+  const closeBoxChatGroup = () => {
+    // Đóng hộp thoại
+    setBoxChatGroupData(null);
   };
   const showBoxChatInRightBar = (friend, user) => {
-  // Mở hộp thoại mới với dữ liệu của người bạn mới
-  setBoxChatData({ friend, user });
+    setBoxChatData({ friend, user });
+    
+  };
+
+  const showGroupChatInRightBar = (group,user) => {
+   setBoxChatGroupData({group,user});
   };
   const addFriend = async (friendPhoneNumber) => {
     try {
@@ -235,7 +245,7 @@ allowsEditing: true,
           </View>
           <View style={styles.divider} />
           <SafeAreaView style={styles.screenContainer}>
-              {select === 1 ? <Screen2 user={user} showBoxChatInRightBar={showBoxChatInRightBar}/> : <FriendScreen user={user} showBoxChatInRightBar={showBoxChatInRightBar}/>}
+              {select === 1 ? <Screen2 user={user} showBoxChatInRightBar={showBoxChatInRightBar} showGroupChatInRightBar={showGroupChatInRightBar}/> : <FriendScreen user={user} showBoxChatInRightBar={showBoxChatInRightBar}/>}
           </SafeAreaView>  
         </View>
         <View style={styles.dividerVertical} />
@@ -246,6 +256,13 @@ allowsEditing: true,
               friend={boxChatData.friend}
               user={boxChatData.user}
               onClose={closeBoxChat}
+            />
+          )}
+          {boxChatGroupData&&(
+            <GroupChats
+            user={boxChatGroupData.user}
+            group={boxChatGroupData.group}
+            onClose={closeBoxChatGroup}
             />
           )}
         </SafeAreaView>
@@ -371,7 +388,7 @@ allowsEditing: true,
             </Pressable>
             <View style={styles.Inputsdt}>
             <TextInput
-style={styles.txtSearch}
+              style={styles.txtSearch}
               placeholder="Số điện thoại"
               onChangeText={(text) => setPhoneNumber(text)}
               value={phoneNumber}

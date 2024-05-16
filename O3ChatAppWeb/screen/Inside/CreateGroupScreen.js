@@ -161,10 +161,10 @@ const CreateGroupScreen = ({ navigation, route }) => {
 
       setAvatarUrl(avatarUrl);
 
-      alert("Thành công! Ảnh đại diện đã được cập nhật!");
+      //alert("Thành công! Ảnh đại diện đã được cập nhật!");
     } catch (error) {
       console.error("Lỗi khi cập nhật dữ liệu người dùng:", error);
-      alert("Lỗi! Không thể cập nhật dữ liệu người dùng");
+      //alert("Lỗi! Không thể cập nhật dữ liệu người dùng");
     }
   };
   

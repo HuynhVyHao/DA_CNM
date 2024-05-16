@@ -17,7 +17,7 @@ const dynamoDB = new AWS.DynamoDB.DocumentClient({
   accessKeyId: ACCESS_KEY_ID,
   secretAccessKey: SECRET_ACCESS_KEY,
 });
-const Screen2 = ({ navigation,user,friend,showBoxChatInRightBar}) => {
+const Screen2 = ({ showGroupChatInRightBar,user,showBoxChatInRightBar}) => {
   const [friends, setFriends] = useState([]);
   const [groups, setGroups] = useState([]);
   const [latestMessages, setLatestMessages] = useState({});
@@ -223,11 +223,67 @@ for (const friend of friendsList) {
     }
   };
 
-  const handleViewGroup = (group) => {
-    navigation.navigate("BoxChat", { group });
-  };
+  const handleViewGroup = async (group, user) => {
+    try {
+        console.log('Group:', group);  // Log đối tượng group
+        console.log('User:', user);    // Log đối tượng user
+        if (!group || !group.groupId) {
+            console.error("Invalid group information");
+            return;
+        }
+        if (!user || !user.soDienThoai) {
+            console.error("Invalid user information");
+            return;
+        }
+        // Tạo khóa nhóm từ ID nhóm
+        const groupKey = group.groupId;
+
+        // Kiểm tra xem nhóm đã tồn tại chưa
+        const existingGroupParams = {
+            TableName: "GroupChats",
+            Key: {
+                groupId: groupKey
+            }
+        };
+        const existingGroupData = await dynamoDB.get(existingGroupParams).promise();
+
+        // Nếu có group chat, chuyển đến màn hình GroupChat
+        if (existingGroupData.Item) {
+            showGroupChatInRightBar(group, user);
+            return;
+        }
+
+        // Nếu không tìm thấy group chat, tạo mới
+        const createGroupParams = {
+            TableName: "GroupChats",
+            Item: {
+                groupId: groupKey,
+                groupName: group.groupName,
+                members: group.members,
+                messages: [],
+                // Thêm thông tin nhóm
+                groupInfo: {
+                    groupName: group.groupName,
+                    avatarGroup: group.avatarGroup,
+                    createdAt: new Date().toISOString(),
+                    soDienThoai: user.soDienThoai
+                }
+            }
+        };
+        await dynamoDB.put(createGroupParams).promise();
+
+        // Chuyển đến màn hình GroupChat với thông tin của nhóm
+        showGroupChatInRightBar(group, user);
+
+    } catch (error) {
+        console.error("Error handling view group:", error);
+    }
+};
+
+
+
   
- 
+ //navigation.navigate("BoxChat", { group });
   return (
     <SafeAreaView style={{ flex: 1 }}>
        <View style={styles.contactPhone}>
@@ -269,7 +325,7 @@ for (const friend of friendsList) {
           {groups && groups.length > 0 ? (
             groups.map((group, index) => (
               <Pressable
-                onPress={() => handleViewGroup(group)}
+                onPress={() => handleViewGroup(group,user)}
                 key={index}
                 style={styles.infoMenu}
               >

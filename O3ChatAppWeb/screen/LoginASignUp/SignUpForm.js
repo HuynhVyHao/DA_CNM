@@ -3,6 +3,9 @@ import { StyleSheet, Text, TextInput, View, Pressable, Image } from "react-nativ
 import { LinearGradient } from "expo-linear-gradient";
 import { DynamoDB, S3 } from "aws-sdk";
 import { useFonts } from "expo-font";
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import firebase from 'firebase/compat/app';
+import { firebaseConfig } from '../LoginASignUp/firebaseConfig';
 import { useNavigation } from '@react-navigation/native';
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION } from "@env";
 import * as ImagePicker from 'expo-image-picker';
@@ -16,46 +19,56 @@ const SignUpForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigation = useNavigation();
-
+  const [verificationId, setVerificationId] = useState(null);
+  const recaptchaVerifier = React.useRef(null);
+  const [otp, setOTP] = useState('');
+  const dynamoDB = new DynamoDB.DocumentClient({
+    region: REGION,
+    accessKeyId: ACCESS_KEY_ID,
+    secretAccessKey: SECRET_ACCESS_KEY,
+  });
+ 
   const signUp = async () => {
     try {
-
       if (soDienThoai.length !== 10 && soDienThoai.length !== 11) {
         alert("Số điện thoại phải có đủ 10 hoặc 11 số");
         return;
       }
-
       if (/\d/.test(hoTen)) {
         alert("Tên không được chứa số");
         return;
       }
-
       if (!imageUri) {
         alert("Vui lòng chọn ảnh đại diện");
         return;
       }
-
       if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(matKhau)) {
         alert("Mật khẩu phải có ít nhất 8 ký tự, bao gồm ít nhất một chữ hoa, một chữ thường và một số");
         return;
       }
-
       if (matKhau !== nhapLaiMatKhau) {
         alert("Mật khẩu nhập lại không khớp");
         return;
       }
-      
+      const credential = firebase.auth.PhoneAuthProvider.credential(
+        verificationId,
+        otp
+      );
+      try {
+        await firebase.auth().signInWithCredential(credential);
+      } catch (error) {
+        // Báo lỗi khi mã OTP không đúng
+        console.error("Lỗi khi xác thực OTP:", error);
+        alert("Mã OTP không đúng");
+        return;
+      }
+
       const imageUrl = await uploadImageToS3(imageUri);
       if (!imageUrl) {
         alert("Lỗi khi tải ảnh lên S3");
         return;
       }
-      const dynamoDB = new DynamoDB.DocumentClient({
-        region: REGION,
-        accessKeyId: ACCESS_KEY_ID,
-        secretAccessKey: SECRET_ACCESS_KEY,
-      });
-     
+      
       const params = {
         TableName: "Users",
         Item: {
@@ -65,14 +78,61 @@ const SignUpForm = () => {
           avatarUrl: imageUrl
         },
       };
-
+      
       await dynamoDB.put(params).promise();
       alert("Đăng ký thành công");
-      
       navigation.navigate('LoginForm');
     } catch (error) {
       console.error("Lỗi khi đăng ký:", error);
       alert("Đăng ký thất bại");
+    }
+  };
+  const checkPhoneNumberExists = async (phoneNumber) => {
+    const params = {
+      TableName: "Users",
+      Key: {
+        soDienThoai: phoneNumber,
+      },
+    };
+  
+    try {
+      const user = await dynamoDB.get(params).promise();
+      return user.Item !== undefined; // Trả về true nếu số điện thoại đã tồn tại, ngược lại trả về false
+    } catch (error) {
+      console.error('Error checking phone number:', error);
+      throw error;
+    }
+  };
+  
+  const sendOTP = async () => {
+    const phoneProvider = new firebase.auth.PhoneAuthProvider();
+    try {
+      const phoneNumberExists = await checkPhoneNumberExists(soDienThoai);
+    
+    if (phoneNumberExists) {
+      // Số điện thoại đã tồn tại trong DynamoDB, hiển thị thông báo và không gửi mã OTP
+      alert('Số điện thoại đã được đăng ký');
+      return;
+    }
+      const verificationId = await phoneProvider.verifyPhoneNumber(
+        '+84' + soDienThoai.slice(1),
+        recaptchaVerifier.current
+      );
+      if (verificationId) {
+        setVerificationId(verificationId);
+
+        const otpSentTime = new Date().getTime();
+        localStorage.setItem('otpSentTime', otpSentTime);
+        
+        alert(
+          'Thông báo !Mã OTP đã được gửi thành công!',
+          [{ text: 'OK', onPress: () => console.log('OK Pressed') }],
+          { cancelable: false }
+        );
+      }
+    } catch (error) {
+      alert("Vui lòng nhập số điện thoại")
+      console.error('Error sending OTP:', error);
     }
   };
 
@@ -135,6 +195,12 @@ const SignUpForm = () => {
 
   return (
     <LinearGradient colors={["#4AD8C7", "#B728A9"]} style={styles.background}>
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+        title="Xác thực"
+        cancelLabel="Hủy"
+      />
       <View style={styles.container}>
         <View style={styles.logo}>
           <Text style={styles.txtLogo}>4MChat</Text>
@@ -142,7 +208,7 @@ const SignUpForm = () => {
         <Text style={{ color: "#F5EEEE", fontSize: 40, fontWeight: "bold" }}>Đăng ký</Text>
         <View style={styles.imageContainer}>
           <Pressable onPress={pickImage}>
-            <Text style={{ paddingVertical: 10, paddingHorizontal: 20, color: '#FFF', marginTop: 20, borderRadius: 30, backgroundColor: "rgba(117, 40, 215, 0.47)" }}>Chọn ảnh</Text>
+            <Text style={{ paddingVertical: 10, paddingHorizontal: 20, color: '#FFF', marginTop: 15, borderRadius: 30, backgroundColor: "rgba(117, 40, 215, 0.47)" }}>Chọn ảnh</Text>
           </Pressable>
           {imageUri && <Image source={{ uri: imageUri }} style={{ marginLeft: 30, width: 70, height: 70, borderRadius: 30, marginTop: 20 }} />}
         </View>
@@ -178,9 +244,22 @@ const SignUpForm = () => {
             <Text style={styles.showPasswordText}>{showConfirmPassword ? 'Ẩn' : 'Hiện'}</Text>
           </Pressable>
         </View>
+        <View style={styles.otp}>
+        <TextInput
+        style={{ borderWidth: 1, borderColor: 'gray',backgroundColor:"white", padding: 10, borderRadius: 10, marginTop: 10, width: 150 }}
+        placeholder="Mã OTP"
+        onChangeText={(text) => setOTP(text)}
+      />
+        <Pressable
+        style={{ backgroundColor: 'rgba(117, 40, 215, 0.47)', padding: 10, borderRadius: 10,marginTop:10 ,marginLeft:10}}
+        onPress={sendOTP}>
+        <Text style={{ color: 'white', fontSize: 16, textAlign: 'center' }}>Gửi OTP</Text>
+      </Pressable>
+      </View>
         <Pressable style={styles.btnSignUp} onPress={signUp}>
           <Text style={styles.txtSignUp}>Đăng Ký</Text>
         </Pressable>
+        
       </View>
       <Pressable style={styles.btnBack} onPress={() => navigation.goBack()}>
           <Text style={styles.txtBack}>Quay lại</Text>
@@ -190,6 +269,10 @@ const SignUpForm = () => {
 };
 
 const styles = StyleSheet.create({
+  otp:{
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   imageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -201,7 +284,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   txtBack: {
-    color: '#FFF',
+    color: 'black',
     fontSize: 16,
   },
   container: {
@@ -215,7 +298,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   txtLogo: {
-    marginTop: 20,
+    marginTop: 10,
     color: "#fff",
     fontSize: 64,
     fontFamily: "keaniaone-regular",
@@ -226,7 +309,7 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 10,
     backgroundColor: "rgba(217, 217, 217, 0.50)",
-    marginTop: 48,
+    marginTop: 20,
   },
   inputHoTen: {
     width: 318,
@@ -236,7 +319,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderRadius: 10,
     paddingLeft: 10,
-    marginTop: 36,
+    marginTop: 20,
   },
   inputSDT: {
     width: 318,
@@ -246,7 +329,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderRadius: 10,
     paddingLeft: 10,
-    marginTop: 30,
+    marginTop: 20,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -255,7 +338,7 @@ const styles = StyleSheet.create({
     height: 46,
     backgroundColor: "rgba(255, 255, 255, 0.80)",
     borderRadius: 10,
-    marginTop: 30,
+    marginTop: 20,
   },
   inputPass: {
     flex: 1,
@@ -280,7 +363,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(117, 40, 215, 0.47)",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 30,
+    marginTop: 15,
   },
   txtSignUp: {
     color: "#FFF",

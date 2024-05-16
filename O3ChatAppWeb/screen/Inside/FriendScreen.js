@@ -12,6 +12,7 @@ const dynamoDB = new AWS.DynamoDB.DocumentClient({
 });
 
 const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
+
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -155,10 +156,10 @@ const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
         },
       };
       await dynamoDB.update(updateParams).promise();
-
       // Cập nhật lại danh sách bạn bè và danh sách lời mời kết bạn
       fetchFriends();
       fetchFriendRequests();
+      
     } catch (error) {
       console.error("Error accepting friend request:", error);
     }
@@ -338,7 +339,7 @@ const FriendScreen = ({ navigation, user,showBoxChatInRightBar}) => {
                         borderWidth: 1,
                         borderRadius: 10,
                         height: 60,
-                        width: 300,
+                        width: 500,
                         alignItems: "center",
                         padding: 3,
                       }}
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     padding: 20,
     borderRadius: 10,
-    width: "80%"
+    width: "50%"
   },
   modalTitle: {
     fontSize: 20,

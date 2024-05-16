@@ -120,6 +120,9 @@ const LoginForm = ({ navigation }) => {
           <Text style={styles.txtLogin}>Đăng Nhập</Text>
         </Pressable>
       </View>
+      <Pressable style={styles.btnBack} onPress={() => navigation.goBack()}>
+          <Text style={styles.txtBack}>Quay lại</Text>
+        </Pressable>
     </LinearGradient>
   );
 };
@@ -127,6 +130,12 @@ const LoginForm = ({ navigation }) => {
 export default LoginForm;
 
 const styles = StyleSheet.create({
+  btnBack: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    padding: 10,
+  },
   container: {
     flex: 1,
     justifyContent: "center",

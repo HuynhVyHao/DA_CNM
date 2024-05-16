@@ -52,8 +52,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
       // Update password in DynamoDB
       await updatePassword(phoneNumber, newPassword);
 
-      Alert.alert(
-        'Thông báo',
+      alert(
         'Cập nhật mật khẩu thành công!',
         [{ text: 'OK', onPress: () => console.log('OK Pressed') }],
         { cancelable: false }
@@ -109,7 +108,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
         keyboardType="phone-pad"
       />
       <TouchableOpacity
-        style={{ backgroundColor: 'blue', padding: 10, borderRadius: 5 }}
+        style={{ backgroundColor: 'blue', padding: 10, borderRadius: 5,marginBottom:20 }}
         onPress={sendOTP}
       >
         <Text style={{ color: 'white', fontSize: 16, textAlign: 'center' }}>Gửi OTP</Text>

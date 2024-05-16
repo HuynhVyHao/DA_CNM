@@ -583,7 +583,6 @@ const retractMessage = async () => {
         scrollEventThrottle={16}
       >
         {messages.map((message, index) => (
-          
   <Pressable
     key={index}
     onLongPress={() => handleLongPress(message, index)}
@@ -597,9 +596,7 @@ const retractMessage = async () => {
       },
     ]}
   >
-    
     {typeof message.content === 'string' && message.content.startsWith('http') ? (
-
   <View>
     <Image source={{ uri: message.content }} style={styles.messageImage} />
     <Text style={styles.messageTimestamp}>
@@ -632,11 +629,8 @@ const retractMessage = async () => {
   </View> 
 )}
   </Pressable>
- 
 ))}
-
       </ScrollView>
-  
       <View style={styles.inputContainer}>
       <Pressable onPress={pickFile}>
           <Icon
