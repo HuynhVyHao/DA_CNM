@@ -725,12 +725,13 @@ const styles = StyleSheet.create({
     right: 0,
   },
   closeButton: {
-    marginLeft:400,
+    marginLeft:800,
     padding: 10,
   },
   closeButtonText: {
     color: 'black', // Màu của văn bản nút "Đóng"
     fontWeight: 'bold',
+    
   },
   fileContainer: {
     backgroundColor: "#f2f2f2",

@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   closeButton: {
-    marginLeft:400,
+    marginLeft:800,
     padding: 10,
   },
   closeButtonText: {
