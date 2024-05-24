@@ -1,5 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Image, TextInput, Pressable, Alert, BackHandler, Dimensions } from "react-native";
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  TextInput,
+  Pressable,
+  Alert,
+  BackHandler,
+  Dimensions,
+} from "react-native";
 import IconAnt from "react-native-vector-icons/AntDesign";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from "expo-image-picker";
@@ -8,7 +20,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { DynamoDB, S3 } from "aws-sdk";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION, S3_BUCKET_NAME, DYNAMODB_TABLE_NAME } from "@env";
+import {
+  ACCESS_KEY_ID,
+  SECRET_ACCESS_KEY,
+  REGION,
+  S3_BUCKET_NAME,
+  DYNAMODB_TABLE_NAME,
+} from "@env";
 
 const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get("window");
 
@@ -40,20 +58,44 @@ const CreateGroupScreen = ({ navigation, route }) => {
     try {
       const getFriendsParams = {
         TableName: "Friends",
-        Key: { soDienThoai: user?.soDienThoai },
+        Key: { senderEmail: user?.email }, // Assuming user is defined somewhere
       };
       const friendData = await dynamoDB.get(getFriendsParams).promise();
 
       if (friendData.Item && friendData.Item.friends) {
-        setFriends(friendData.Item.friends);
+        const friendEmails = friendData.Item.friends.map(
+          (friend) => friend.email
+        );
+
+        // Array to store friend details
+        const friendDetails = [];
+
+        // Loop through friend emails
+        for (const friendEmail of friendEmails) {
+          // Get friend's details from Users table
+          const getUserParams = {
+            TableName: "Users",
+            Key: { email: friendEmail },
+          };
+          const userData = await dynamoDB.get(getUserParams).promise();
+
+          // If user data exists, push it to friendDetails array
+          if (userData.Item) {
+            friendDetails.push(userData.Item);
+          }
+        }
+
+        // Now friendDetails array contains details of all friends
+        // Set friends with the details from Users table
+        setFriends(friendDetails);
       } else {
+        // If no friends found, set friends to an empty array
         setFriends([]);
       }
     } catch (error) {
-      console.error("Lỗi khi tải danh sách bạn bè:", error);
+      console.error("Error fetching friends data:", error);
     }
   };
-
   useEffect(() => {
     fetchFriends();
   }, [user]);
@@ -69,7 +111,7 @@ const CreateGroupScreen = ({ navigation, route }) => {
 
     return () => backHandler.remove();
   }, [navigation]);
-  
+
   const pickAvatar = async () => {
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
@@ -82,19 +124,18 @@ const CreateGroupScreen = ({ navigation, route }) => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const image = result.assets[0].uri.split(".");
         const fileType = image[image.length - 1];
-        
+
         setAvatarUrl(result.assets[0].uri);
         setFileType(fileType);
         setIsAvatarSelected(true);
-        const avatarUrl = await uploadAvatar(result.assets[0].uri);
-        updateGroupAvatar(avatarUrl);
+        uploadAvatar(result.assets[0].uri);
       }
     } catch (error) {
       console.error("Lỗi khi chọn ảnh đại diện:", error);
       alert("Lỗi! Không thể chọn ảnh đại diện");
     }
   };
-  
+
   const uploadAvatar = async (avatarUrl) => {
     try {
       let contentType = "";
@@ -114,7 +155,7 @@ const CreateGroupScreen = ({ navigation, route }) => {
       }
       const response = await fetch(avatarUrl);
       const blob = await response.blob();
-      const filePath = `${user?.soDienThoai}_${Date.now().toString()}.${fileType}`;
+      const filePath = `${user?.email}_${Date.now().toString()}.${fileType}`;
 
       const s3 = new S3({
         region: REGION,
@@ -131,7 +172,7 @@ const CreateGroupScreen = ({ navigation, route }) => {
       };
 
       const data = await s3.upload(paramsS3).promise();
-      return data.Location;
+      setAvatarUrl(data.Location);
     } catch (error) {
       console.error("Lỗi khi tải lên ảnh đại diện:", error);
       alert("Lỗi! Không thể tải lên ảnh đại diện");
@@ -139,76 +180,88 @@ const CreateGroupScreen = ({ navigation, route }) => {
     }
   };
 
-  const updateGroupAvatar = async (avatarUrl) => {
-    try {
-      const dynamoDB = new DynamoDB.DocumentClient({
-        region: REGION,
-        accessKeyId: ACCESS_KEY_ID,
-        secretAccessKey: SECRET_ACCESS_KEY,
-      });
+  // const updateGroupAvatar = async (avatarUrl) => {
+  //   try {
+  //     const dynamoDB = new DynamoDB.DocumentClient({
+  //       region: REGION,
+  //       accessKeyId: ACCESS_KEY_ID,
+  //       secretAccessKey: SECRET_ACCESS_KEY,
+  //     });
 
-      const paramsDynamoDb = {
-        TableName: tableName,
-        Key: { soDienThoai : user.soDienThoai },
-        UpdateExpression: "set avatarGroup = :avatar",
-        ExpressionAttributeValues: {
-          ":avatar": avatarUrl,
-        },
-        ReturnValues: "UPDATED_NEW",
-      };
+  //     const paramsDynamoDb = {
+  //       TableName: tableName,
+  //       Key: { email: user.email },
+  //       UpdateExpression: "set avatarGroup = :avatar",
+  //       ExpressionAttributeValues: {
+  //         ":avatar": avatarUrl,
+  //       },
+  //       ReturnValues: "UPDATED_NEW",
+  //     };
 
-      await dynamoDB.update(paramsDynamoDb).promise();
+  //     await dynamoDB.update(paramsDynamoDb).promise();
 
-      setAvatarUrl(avatarUrl);
+  //     setAvatarUrl(avatarUrl);
 
-      //alert("Thành công! Ảnh đại diện đã được cập nhật!");
-    } catch (error) {
-      console.error("Lỗi khi cập nhật dữ liệu người dùng:", error);
-      //alert("Lỗi! Không thể cập nhật dữ liệu người dùng");
-    }
-  };
-  
+  //     //alert("Thành công! Ảnh đại diện đã được cập nhật!");
+  //   } catch (error) {
+  //     console.error("Lỗi khi cập nhật dữ liệu người dùng:", error);
+  //     //alert("Lỗi! Không thể cập nhật dữ liệu người dùng");
+  //   }
+  // };
+
   const handleSelectFriend = (index) => {
-    setSelectedFriends(prevState => ({
+    setSelectedFriends((prevState) => ({
       ...prevState,
-      [index]: !prevState[index]
+      [index]: !prevState[index],
     }));
   };
-  
+
   const checkMinimumSelectedMembers = () => {
-    const selectedCount = Object.values(selectedFriends).filter(selected => selected).length;
+    const selectedCount = Object.values(selectedFriends).filter(
+      (selected) => selected
+    ).length;
     return selectedCount >= 2;
   };
-  
+
   const createGroup = async () => {
     if (checkMinimumSelectedMembers()) {
       try {
-        const groupId = `${user.soDienThoai}_${Date.now().toString()}`;
-        // Sử dụng giá trị từ state groupName thay vì từ TextInput
+        const groupId = `${user.email}_${Date.now().toString()}`;
         const groupNameValue = groupName;
-        const getSelectedFriendssoDienThoai = () => {
-          const selectedFriendssoDienThoai = Object.keys(selectedFriends)
-            .filter(index => selectedFriends[index])
-            .map(index => friends[index].soDienThoai);
-                   selectedFriendssoDienThoai.push(user.soDienThoai);
-          return selectedFriendssoDienThoai.join(",");
-        };
+        const selectedFriendsEmail = Object.keys(selectedFriends)
+          .filter((index) => selectedFriends[index])
+          .map((index) => friends[index].email);
+
+        // Thêm người tạo nhóm vào danh sách thành viên
+        const groupMembers = [...selectedFriendsEmail, user.email];
+
         const groupData = {
           groupId: groupId,
-          members: [getSelectedFriendssoDienThoai()],
-          groupName: groupNameValue, // Sử dụng giá trị từ state
-          avatarGroup: avatarUrl
-        }
-  
-        const putParams = {
-          TableName: "GroupChats",
-          Item: groupData
+          members: groupMembers,
+          groupName: groupNameValue,
+          avatarGroup: avatarUrl || "",
+          messages: [],
+          roles: {}, // Khởi tạo roles
         };
 
+        // Thiết lập vai trò cho người tạo nhóm
+        groupData.roles[user.email] = "Trưởng nhóm";
+
+        // Thiết lập vai trò cho các thành viên
+        selectedFriendsEmail.forEach((email) => {
+          if (email !== user.email) {
+            groupData.roles[email] = "Thành viên";
+          }
+        });
+
+        const putParams = {
+          TableName: "GroupChats",
+          Item: groupData,
+        };
 
         await dynamoDB.put(putParams).promise();
-        
-        navigation.navigate("HomeScreen", { groupId, user });
+
+        navigation.navigate("HomeScreen", { groups: groupData, user });
       } catch (error) {
         console.error("Lỗi khi tạo nhóm:", error);
         alert("Lỗi!Không thể tạo nhóm");
@@ -220,45 +273,83 @@ const CreateGroupScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollViewContainer} >
+      <ScrollView contentContainerStyle={styles.scrollViewContainer}>
         <View style={styles.modalContainer}>
           <View style={styles.upperHeaderPlaceholer} />
           <View style={styles.header}>
-            <Text style={{ fontSize: 18, textAlign: "center", alignItems: "center" }}>Tạo Nhóm Mới</Text>
+            <Text
+              style={{
+                fontSize: 18,
+                textAlign: "center",
+                alignItems: "center",
+              }}
+            >
+              Tạo Nhóm Mới
+            </Text>
           </View>
           <View style={styles.paddingForHeader} />
           <View style={styles.viewContent}>
-            <LinearGradient colors={["#4AD8C7", "#B728A9"]} style={styles.background} />
+            <LinearGradient
+              colors={["#4AD8C7", "#B728A9"]}
+              style={styles.background}
+            />
             <View style={styles.infoPersonal}>
               <View style={{ flexDirection: "row", marginTop: 20 }}>
                 <Pressable onPress={pickAvatar}>
                   {isAvatarSelected ? (
                     <Image
                       style={{ width: 40, height: 40, borderRadius: 25 }}
-                      source={avatarUrl ? { uri: avatarUrl } : require("../../assets/img/iconGroupScreen/no-avatar.jpg")}
+                      source={
+                        avatarUrl
+                          ? { uri: avatarUrl }
+                          : require("../../assets/img/iconGroupScreen/no-avatar.jpg")
+                      }
                     />
                   ) : (
                     <IconAnt name="camerao" size={40} color="black" />
                   )}
                 </Pressable>
                 <View style={{ marginLeft: 10, flexDirection: "row" }}>
-                <TextInput
-  ref={groupNameRef}
-  style={[styles.textInput, isInputFocused && styles.textInputFocused]}
-  placeholder="Tên Nhóm"
-  onFocus={() => setIsInputFocused(true)}
-  onBlur={() => setIsInputFocused(false)}
-  onChangeText={(text) => setGroupName(text)} // Thêm hàm onChangeText để cập nhật giá trị tên nhóm
-/>
+                  <TextInput
+                    ref={groupNameRef}
+                    style={[
+                      styles.textInput,
+                      isInputFocused && styles.textInputFocused,
+                    ]}
+                    placeholder="Tên Nhóm"
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => setIsInputFocused(false)}
+                    onChangeText={(text) => setGroupName(text)} // Thêm hàm onChangeText để cập nhật giá trị tên nhóm
+                  />
                 </View>
               </View>
               <View>
-                <View style={{ width: "95%", borderRadius: 10, flexDirection: "row", backgroundColor: "#DDDDDD", marginTop: 20 }}>
-                  <IconAnt name="search1" size={25} color={"#fff"} style={{ marginLeft: 10, marginTop: 3 }} />
+                <View
+                  style={{
+                    width: "95%",
+                    borderRadius: 10,
+                    flexDirection: "row",
+                    backgroundColor: "#DDDDDD",
+                    marginTop: 20,
+                  }}
+                >
+                  <IconAnt
+                    name="search1"
+                    size={25}
+                    color={"#fff"}
+                    style={{ marginLeft: 10, marginTop: 3 }}
+                  />
                   <TextInput
                     placeholder="Tìm kiếm theo tên hoặc số điện thoại"
                     placeholderTextColor={"#fff"}
-                    style={{ width: "90%", height: 30, color: "#000", fontSize: 16, borderRadius: 10, paddingLeft: 10 }}
+                    style={{
+                      width: "90%",
+                      height: 30,
+                      color: "#000",
+                      fontSize: 16,
+                      borderRadius: 10,
+                      paddingLeft: 10,
+                    }}
                   />
                 </View>
                 <Text style={styles.pickMember}>Chọn Thành Viên</Text>
@@ -267,15 +358,31 @@ const CreateGroupScreen = ({ navigation, route }) => {
             <View style={styles.contactPhone}>
               {friends.length > 0 ? (
                 friends.map((friend, index) => (
-                  <Pressable key={index} style={styles.infoMenu} onPress={() => handleSelectFriend(index)}>
+                  <Pressable
+                    key={index}
+                    style={styles.infoMenu}
+                    onPress={() => handleSelectFriend(index)}
+                  >
                     <View style={styles.checkboxContainer}>
-                      <View style={[styles.checkbox, { borderColor: selectedFriends[index] ? 'black' : '#ccc' }]}>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            borderColor: selectedFriends[index]
+                              ? "black"
+                              : "#ccc",
+                          },
+                        ]}
+                      >
                         {selectedFriends[index] ? (
                           <Icon name="check" size={18} color="black" />
                         ) : null}
                       </View>
                     </View>
-                    <Image style={styles.avatarImage} source={{ uri: friend.avatarUrl }} />
+                    <Image
+                      style={styles.avatarImage}
+                      source={{ uri: friend.avatarUser }}
+                    />
                     <Text style={styles.txtUser}>{friend.hoTen}</Text>
                   </Pressable>
                 ))
@@ -290,8 +397,8 @@ const CreateGroupScreen = ({ navigation, route }) => {
         </View>
       </ScrollView>
       <Pressable style={styles.btnBack} onPress={() => navigation.goBack()}>
-          <Text style={styles.txtBack}>Quay lại</Text>
-        </Pressable>
+        <Text style={styles.txtBack}>Quay lại</Text>
+      </Pressable>
     </SafeAreaView>
   );
 };
@@ -357,7 +464,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     textAlign: "center",
     width: 200,
-    alignSelf: "center"
+    alignSelf: "center",
   },
   checkboxContainer: {
     width: 24,
@@ -407,13 +514,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   btnBack: {
-    position: 'absolute',
+    position: "absolute",
     top: 20,
     left: 20,
     padding: 10,
   },
   txtBack: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
   },
 });

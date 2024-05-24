@@ -18,20 +18,20 @@ const LoginForm = ({ navigation }) => {
     "keaniaone-regular": require("../../assets/fonts/KeaniaOne-Regular.ttf"),
   });
 
-  const [soDienThoai, setSoDienThoai] = useState("");
+  const [email, setEmail] = useState("");
   const [matKhau, setMatKhau] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     try {
-      if (!soDienThoai || !matKhau) {
-        alert("Vui lòng điền số điện thoại và mật khẩu");
+      if (!email || !matKhau) {
+        alert("Vui lòng điền email và mật khẩu");
         return;
       }
 
       // Kiểm tra số điện thoại có 10 số và bắt đầu bằng số 0
-      if (!soDienThoai.match(/^(0)[0-9]{9}$/)) {
-        alert("Số điện thoại không hợp lệ");
+      if (!email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+        alert("Lỗi", "Email không hợp lệ");
         return;
       }
 
@@ -44,7 +44,7 @@ const LoginForm = ({ navigation }) => {
       const params = {
         TableName: "Users",
         Key: {
-          soDienThoai: soDienThoai,
+          email: email,
         },
       };
 
@@ -52,7 +52,7 @@ const LoginForm = ({ navigation }) => {
 
       if (!userData.Item) {
         // User not found
-        alert("Số điện thoại hoặc mật khẩu không tồn tại");
+        alert("Email hoặc mật khẩu không tồn tại");
         return;
       }
 
@@ -74,10 +74,7 @@ const LoginForm = ({ navigation }) => {
   }
 
   return (
-    <LinearGradient
-      colors={["#4AD8C7", "#B728A9"]}
-      style={styles.background}
-    >
+    <LinearGradient colors={["#4AD8C7", "#B728A9"]} style={styles.background}>
       <View style={styles.container}>
         <View style={styles.logo}>
           <Text style={styles.txtLogo}>4MChat</Text>
@@ -85,9 +82,9 @@ const LoginForm = ({ navigation }) => {
 
         <TextInput
           style={{ ...styles.inputSdt, color: "#000" }}
-          placeholder="Số điện thoại"
-          onChangeText={(text) => setSoDienThoai(text)}
-          value={soDienThoai}
+          placeholder="Email"
+          onChangeText={(text) => setEmail(text)}
+          value={email}
         />
         <View style={styles.passwordContainer}>
           <TextInput
@@ -107,22 +104,22 @@ const LoginForm = ({ navigation }) => {
           </Pressable>
         </View>
         <Text
-  style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
-  onPress={() => {
-    // Chuyển hướng đến trang nhập số điện thoại để quên mật khẩu
-    navigation.navigate("ForgotPasswordScreen");
-  }}
->
-  Quên mật khẩu?
-</Text>
+          style={{ color: "#0B0B0B", fontSize: 14, marginTop: 20 }}
+          onPress={() => {
+            // Chuyển hướng đến trang nhập số điện thoại để quên mật khẩu
+            navigation.navigate("ForgotPasswordScreen");
+          }}
+        >
+          Quên mật khẩu?
+        </Text>
 
         <Pressable onPress={handleLogin} style={styles.btnLogin}>
           <Text style={styles.txtLogin}>Đăng Nhập</Text>
         </Pressable>
       </View>
       <Pressable style={styles.btnBack} onPress={() => navigation.goBack()}>
-          <Text style={styles.txtBack}>Quay lại</Text>
-        </Pressable>
+        <Text style={styles.txtBack}>Quay lại</Text>
+      </Pressable>
     </LinearGradient>
   );
 };
@@ -131,7 +128,7 @@ export default LoginForm;
 
 const styles = StyleSheet.create({
   btnBack: {
-    position: 'absolute',
+    position: "absolute",
     top: 20,
     left: 20,
     padding: 10,

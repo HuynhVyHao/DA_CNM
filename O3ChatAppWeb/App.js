@@ -23,6 +23,7 @@ import BoxChat from "./screen/Inside/BoxChat";
 import CreateGroupScreen from "./screen/Inside/CreateGroupScreen";
 import Screen2 from "./screen/Inside/Screen2";
 import ForgotPasswordScreen from "./screen/LoginASignUp/ForgotPasswordScreen";
+import PhoneAuthScreen from "./screen/LoginASignUp/PhoneAuthScreen";
 
 const LoginASign = ({ navigation }) => {
   const [fontsLoaded] = useFonts({
@@ -122,11 +123,13 @@ export default function App() {
         <Stack.Screen name="QRScanner" component={QRScanner} />
         <Stack.Screen name="FriendScreen" component={FriendScreen} />
         <Stack.Screen name="BoxChat" component={BoxChat} />
-        <Stack.Screen name="CreateGroupScreen" component={CreateGroupScreen} /> 
-        <Stack.Screen name="Screen2" component={Screen2} /> 
-        <Stack.Screen name="ForgotPasswordScreen" component={ForgotPasswordScreen} /> 
-        
-
+        <Stack.Screen name="CreateGroupScreen" component={CreateGroupScreen} />
+        <Stack.Screen name="Screen2" component={Screen2} />
+        <Stack.Screen name="PhoneAuthScreen" component={PhoneAuthScreen} />
+        <Stack.Screen
+          name="ForgotPasswordScreen"
+          component={ForgotPasswordScreen}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

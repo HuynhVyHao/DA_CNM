@@ -9,18 +9,16 @@ import {
   TextInput,
   Keyboard,
   Image,
-  Modal
+  Modal,
 } from "react-native";
 import { DynamoDB, S3 } from "aws-sdk";
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION ,S3_BUCKET_NAME} from "@env";
-import { FontAwesome } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION, S3_BUCKET_NAME } from "@env";
+import { FontAwesome } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import Icon from "react-native-vector-icons/AntDesign";
-import * as DocumentPicker from 'expo-document-picker';
+import * as DocumentPicker from "expo-document-picker";
 
-
-const BoxChat = ({ friend,user,onClose }) => {
-
+const BoxChat = ({ friend, user, onClose }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const scrollViewRef = useRef(null);
@@ -31,7 +29,7 @@ const BoxChat = ({ friend,user,onClose }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false); // Thêm state để theo dõi việc cuộn lên
   const [selectedFile, setSelectedFile] = useState(null);
-  
+
   const handleClose = () => {
     onClose();
   };
@@ -58,9 +56,9 @@ const BoxChat = ({ friend,user,onClose }) => {
   const handleFileDownload = async (fileURL, fileName) => {
     try {
       // Tạo một phần tử <a> ẩn để tải xuống tệp
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = fileURL;
-      link.setAttribute('download', fileName);
+      link.setAttribute("download", fileName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -91,102 +89,117 @@ const BoxChat = ({ friend,user,onClose }) => {
   };
   const deleteFileFromStorage = async (filePath) => {
     try {
-        const params = {
-            Bucket: 'longs3', // Thay thế bằng tên bucket của bạn
-            Key: filePath// Đường dẫn đến file trong bucket
-        };
-        
-        // Gửi yêu cầu xóa file tới S3
-        await s3.deleteObject(params).promise();
-        
-        console.log('File deleted successfully');
+      const params = {
+        Bucket: "longs3", // Thay thế bằng tên bucket của bạn
+        Key: filePath, // Đường dẫn đến file trong bucket
+      };
+
+      // Gửi yêu cầu xóa file tới S3
+      await s3.deleteObject(params).promise();
+
+      console.log("File deleted successfully");
     } catch (error) {
-        console.error('Error deleting file:', error);
-        throw error; // Ném lỗi để bắt ở nơi gọi hàm nếu cần
+      console.error("Error deleting file:", error);
+      throw error; // Ném lỗi để bắt ở nơi gọi hàm nếu cần
     }
-};
+  };
   const deleteMessage = async () => {
     try {
       const messageToDelete = messages[selectedMessageIndex];
-        let updatedMessages;
+      let updatedMessages;
 
-        // Kiểm tra loại tin nhắn và xử lý tương ứng
-        if (messageToDelete.fileURL) {
-            // Nếu là tin nhắn dạng file, xóa file liên kết trước
-            await deleteFileFromStorage(messageToDelete.fileURL); // Hàm xóa file từ lưu trữ
-        }
-        // Tìm kiếm tin nhắn cần xóa trong danh sách messages
-         updatedMessages = messages.filter((_, index) => index !== selectedMessageIndex);
+      // Kiểm tra loại tin nhắn và xử lý tương ứng
+      if (messageToDelete.fileURL) {
+        // Nếu là tin nhắn dạng file, xóa file liên kết trước
+        await deleteFileFromStorage(messageToDelete.fileURL); // Hàm xóa file từ lưu trữ
+      }
+      // Tìm kiếm tin nhắn cần xóa trong danh sách messages
+      updatedMessages = messages.filter(
+        (_, index) => index !== selectedMessageIndex
+      );
 
-        // Cập nhật danh sách tin nhắn trong DynamoDB
-        const params = {
-            TableName: "BoxChats",
-            Key: {
-                senderSoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
-            },
-            UpdateExpression: "SET messages = :messages",
-            ExpressionAttributeValues: {
-                ":messages": updatedMessages,
-            },
-            ReturnValues: "UPDATED_NEW",
-        };
-        await dynamoDB.update(params).promise();
+      // Cập nhật danh sách tin nhắn trong DynamoDB
+      const params = {
+        TableName: "BoxChats",
+        Key: {
+          senderEmail: `${user.email}_${friend.email}`,
+        },
+        UpdateExpression: "SET messages = :messages",
+        ExpressionAttributeValues: {
+          ":messages": updatedMessages,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await dynamoDB.update(params).promise();
 
-        // Cập nhật state và đóng modal
-        setMessages(updatedMessages);
-        closeModal();
+      // Cập nhật state và đóng modal
+      setMessages(updatedMessages);
+      closeModal();
     } catch (error) {
-        console.error("Error deleting message:", error);
+      console.error("Error deleting message:", error);
     }
-};
-const retractMessage = async () => {
-  try {
-    // Cập nhật tin nhắn thu hồi trong cơ sở dữ liệu của cả hai bên
-    const senderParams = {
-      TableName: "BoxChats",
-      Key: {
-        senderSoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
-      },
-      UpdateExpression: "SET messages[" + selectedMessageIndex + "].content = :content, messages[" + selectedMessageIndex + "].retracted = :retracted REMOVE messages[" + selectedMessageIndex + "].fileURL",
-      ExpressionAttributeValues: {
-        ":content": "Tin nhắn đã được thu hồi",
-        ":retracted": true,
-      },
-      ReturnValues: "UPDATED_NEW",
-    };
-    await dynamoDB.update(senderParams).promise();
+  };
+  const retractMessage = async () => {
+    try {
+      // Cập nhật tin nhắn thu hồi trong cơ sở dữ liệu của cả hai bên
+      const senderParams = {
+        TableName: "BoxChats",
+        Key: {
+          senderEmail: `${user.email}_${friend.email}`,
+        },
+        UpdateExpression:
+          "SET messages[" +
+          selectedMessageIndex +
+          "].content = :content, messages[" +
+          selectedMessageIndex +
+          "].retracted = :retracted REMOVE messages[" +
+          selectedMessageIndex +
+          "].fileURL",
+        ExpressionAttributeValues: {
+          ":content": "Tin nhắn đã được thu hồi",
+          ":retracted": true,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await dynamoDB.update(senderParams).promise();
 
-    const receiverParams = {
-      TableName: "BoxChats",
-      Key: {
-        senderSoDienThoai: `${friend.soDienThoai}_${user.soDienThoai}`,
-      },
-      UpdateExpression: "SET messages[" + selectedMessageIndex + "].content = :content, messages[" + selectedMessageIndex + "].retracted = :retracted REMOVE messages[" + selectedMessageIndex + "].fileURL",
-      ExpressionAttributeValues: {
-        ":content": "Tin nhắn đã được thu hồi",
-        ":retracted": true,
-      },
-      ReturnValues: "UPDATED_NEW",
-    };
-    await dynamoDB.update(receiverParams).promise();
+      const receiverParams = {
+        TableName: "BoxChats",
+        Key: {
+          senderEmail: `${friend.email}_${user.email}`,
+        },
+        UpdateExpression:
+          "SET messages[" +
+          selectedMessageIndex +
+          "].content = :content, messages[" +
+          selectedMessageIndex +
+          "].retracted = :retracted REMOVE messages[" +
+          selectedMessageIndex +
+          "].fileURL",
+        ExpressionAttributeValues: {
+          ":content": "Tin nhắn đã được thu hồi",
+          ":retracted": true,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await dynamoDB.update(receiverParams).promise();
 
-    // Cập nhật trạng thái tin nhắn thu hồi trên máy của bạn
-    const updatedMessages = [...messages];
-    updatedMessages[selectedMessageIndex] = {
-      ...updatedMessages[selectedMessageIndex],
-      content: "Tin nhắn đã được thu hồi",
-      fileURL: null, // Set fileURL to null to remove it
-      fileName:null
-    };
-    setMessages(updatedMessages);
+      // Cập nhật trạng thái tin nhắn thu hồi trên máy của bạn
+      const updatedMessages = [...messages];
+      updatedMessages[selectedMessageIndex] = {
+        ...updatedMessages[selectedMessageIndex],
+        content: "Tin nhắn đã được thu hồi",
+        fileURL: null, // Set fileURL to null to remove it
+        fileName: null,
+      };
+      setMessages(updatedMessages);
 
-    // Đóng modal
-    closeModal();
-  } catch (error) {
-    console.error("Error retracting message:", error);
-  }
-};
-
+      // Đóng modal
+      closeModal();
+    } catch (error) {
+      console.error("Error retracting message:", error);
+    }
+  };
 
   const renderModal = () => {
     return (
@@ -230,13 +243,12 @@ const retractMessage = async () => {
   };
   // Hàm gửi file
   const sendFile = async () => {
-    
     try {
       if (!selectedFile) {
-        alert('Vui lòng chọn một file trước khi gửi.');
+        alert("Vui lòng chọn một file trước khi gửi.");
         return;
       }
-  
+
       const timestamp = new Date().toISOString(); // Định nghĩa và gán giá trị cho biến timestamp
       let senderMessage, receiverMessage;
       // Tải tệp lên S3
@@ -253,23 +265,23 @@ const retractMessage = async () => {
       } else {
         fileSizeWithUnit = `${(fileSize / (1024 * 1024)).toFixed(2)} MB`;
       }
-  
+
       // Thay đổi nội dung của tin nhắn thành dung lượng của file với đơn vị
       const content = `${fileSizeWithUnit}`;
       //alert('File đã được gửi thành công.');
-       senderMessage = {
+      senderMessage = {
         content: content,
-        sendersoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
-        receiversoDienThoai: friend.soDienThoai,
+        senderEmail: `${user.email}_${friend.email}`,
+        receiverEmail: friend.email,
         timestamp: timestamp,
         isSender: true,
         fileURL: fileURL,
         fileName: selectedFile.name, // Thêm URL của file vào tin nhắn
       };
-       receiverMessage = {
+      receiverMessage = {
         content: content,
-        sendersoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
-        receiversoDienThoai: friend.soDienThoai,
+        senderEmail: `${user.email}_${friend.email}`,
+        receiverEmail: friend.email,
         timestamp: timestamp,
         isSender: false,
         fileURL: fileURL,
@@ -279,7 +291,7 @@ const retractMessage = async () => {
         const senderParams = {
           TableName: "BoxChats",
           Key: {
-            senderSoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
+            senderEmail: `${user.email}_${friend.email}`,
           },
           UpdateExpression: "SET messages = list_append(messages, :newMessage)",
           ExpressionAttributeValues: {
@@ -294,7 +306,7 @@ const retractMessage = async () => {
         const receiverParams = {
           TableName: "BoxChats",
           Key: {
-            senderSoDienThoai: `${friend.soDienThoai}_${user.soDienThoai}`,
+            senderEmail: `${friend.email}_${user.email}`,
           },
           UpdateExpression: "SET messages = list_append(messages, :newMessage)",
           ExpressionAttributeValues: {
@@ -306,7 +318,7 @@ const retractMessage = async () => {
       }
       scrollToBottom(); // Cuộn xuống cuối danh sách tin nhắn
       setMessages([...messages, senderMessage]);
-      
+
       // Reset selectedFile state
       cancelDoc();
     } catch (error) {
@@ -326,7 +338,7 @@ const retractMessage = async () => {
         setSelectedImage(result.uri);
       }
     } catch (error) {
-      console.error('Error selecting image:', error);
+      console.error("Error selecting image:", error);
     }
   };
 
@@ -347,16 +359,16 @@ const retractMessage = async () => {
     if (newMessage.trim() !== "") {
       senderMessage = {
         content: newMessage,
-        senderSoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
-        receiverSoDienThoai: friend.soDienThoai,
+        senderEmail: `${user.email}_${friend.email}`,
+        receiverEmail: friend.email,
         timestamp: timestamp,
         isSender: true,
       };
 
       receiverMessage = {
         content: newMessage,
-        senderSoDienThoai: `${friend.soDienThoai}_${user.soDienThoai}`,
-        receiverSoDienThoai: user.soDienThoai,
+        senderEmail: `${friend.email}_${user.email}`,
+        receiverEmail: user.email,
         timestamp: timestamp,
         isSender: false,
       };
@@ -367,16 +379,16 @@ const retractMessage = async () => {
       if (imageUrl) {
         senderMessage = {
           content: imageUrl,
-          senderSoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
-          receiverSoDienThoai: friend.soDienThoai,
+          senderEmail: `${user.email}_${friend.email}`,
+          receiverEmail: friend.email,
           timestamp: timestamp,
           isSender: true,
         };
 
         receiverMessage = {
           content: imageUrl,
-          senderSoDienThoai: `${friend.soDienThoai}_${user.soDienThoai}`,
-          receiverSoDienThoai: user.soDienThoai,
+          senderEmail: `${friend.email}_${user.email}`,
+          receiverEmail: user.email,
           timestamp: timestamp,
           isSender: false,
         };
@@ -391,7 +403,7 @@ const retractMessage = async () => {
         const senderParams = {
           TableName: "BoxChats",
           Key: {
-            senderSoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
+            senderEmail: `${user.email}_${friend.email}`,
           },
           UpdateExpression: "SET messages = list_append(messages, :newMessage)",
           ExpressionAttributeValues: {
@@ -406,7 +418,7 @@ const retractMessage = async () => {
         const receiverParams = {
           TableName: "BoxChats",
           Key: {
-            senderSoDienThoai: `${friend.soDienThoai}_${user.soDienThoai}`,
+            senderEmail: `${friend.email}_${user.email}`,
           },
           UpdateExpression: "SET messages = list_append(messages, :newMessage)",
           ExpressionAttributeValues: {
@@ -432,8 +444,6 @@ const retractMessage = async () => {
     secretAccessKey: SECRET_ACCESS_KEY,
   });
 
-  
-
   useEffect(() => {
     const interval = setInterval(fetchMessages, 500);
     return () => clearInterval(interval);
@@ -444,7 +454,7 @@ const retractMessage = async () => {
       const senderParams = {
         TableName: "BoxChats",
         Key: {
-          senderSoDienThoai: `${user.soDienThoai}_${friend.soDienThoai}`,
+          senderEmail: `${user.email}_${friend.email}`,
         },
       };
       const senderResponse = await dynamoDB.get(senderParams).promise();
@@ -458,14 +468,14 @@ const retractMessage = async () => {
       console.error("Error fetching messages:", error);
     }
   };
-  
+
   const handleScroll = (event) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const currentOffset = contentOffset.y;
     const maxOffset = contentSize.height - layoutMeasurement.height;
-  
+
     setIsScrolledUp(currentOffset < maxOffset - 50); // Cập nhật trạng thái cuộn lên/xuống
-  
+
     // Kiểm tra nếu đang cuộn đến đáy và có tin nhắn mới được thêm vào, thì mới gọi hàm scrollToEnd()
     if (currentOffset >= maxOffset - 10 && messages.length > 0) {
       scrollToBottom();
@@ -494,7 +504,6 @@ const retractMessage = async () => {
   };
 
   const uploadImageToS3 = async (fileUri) => {
-
     const response = await fetch(fileUri);
     const blob = await response.blob();
 
@@ -520,7 +529,7 @@ const retractMessage = async () => {
       if (!(file instanceof Blob)) {
         file = new Blob([file]);
       }
-  
+
       // Đọc dữ liệu từ tệp sử dụng FileReader
       const arrayBuffer = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -533,10 +542,10 @@ const retractMessage = async () => {
         };
         reader.readAsArrayBuffer(file);
       });
-  
+
       return arrayBuffer;
     } catch (error) {
-      console.error('Lỗi khi đọc tệp:', error);
+      console.error("Lỗi khi đọc tệp:", error);
       throw error;
     }
   };
@@ -544,29 +553,29 @@ const retractMessage = async () => {
     try {
       // Đọc dữ liệu từ tệp và chuyển đổi thành buffer
       const fileBuffer = await readAsBuffer(file);
-  
+
       const params = {
-        Bucket: 'longs3',
+        Bucket: "longs3",
         Key: `${file.name}`, // Đường dẫn lưu trữ trên S3
         Body: fileBuffer,
-        ACL: 'public-read', // ACL để cấp quyền truy cập cho tập tin
-        ContentType: file.type // Kiểu nội dung của tập tin
+        ACL: "public-read", // ACL để cấp quyền truy cập cho tập tin
+        ContentType: file.type, // Kiểu nội dung của tập tin
       };
-  
+
       const response = await s3.upload(params).promise();
-      console.log('File uploaded successfully:', response.Location);
+      console.log("File uploaded successfully:", response.Location);
       return response.Location; // Trả về URL của tập tin đã tải lên
     } catch (error) {
-      console.error('Lỗi khi tải tập tin lên S3:', error);
+      console.error("Lỗi khi tải tập tin lên S3:", error);
       throw error;
     }
   };
   const handleLongPress = (message, index) => {
     if (!message.retracted) {
-        openModal(message, index);
+      openModal(message, index);
     }
-};
-  
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -583,56 +592,62 @@ const retractMessage = async () => {
         scrollEventThrottle={16}
       >
         {messages.map((message, index) => (
-  <Pressable
-    key={index}
-    onLongPress={() => handleLongPress(message, index)}
-    style={[
-      styles.messageContainer,
-      {
-        alignSelf: message.isSender ? "flex-end" : "flex-start",
-        backgroundColor: message.isSender ? "#94e5f2" : "#dddddd",
-        opacity:
-        selectedMessage && selectedMessageIndex !== index ? 0.5 : 1,
-      },
-    ]}
-  >
-    {typeof message.content === 'string' && message.content.startsWith('http') ? (
-  <View>
-    <Image source={{ uri: message.content }} style={styles.messageImage} />
-    <Text style={styles.messageTimestamp}>
-      {formatMessageTimestamp(message.timestamp)}
-    </Text>
-  </View>
-) : (
-  <View>
-    {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
-      <View style={[styles.fileContainer, { flexDirection: "row" }]}>
-      <Text style={styles.fileName}>{message.fileName}</Text>
-      <Pressable
-        style={{ marginLeft: 5 }}
-        onPress={() =>
-          handleFileDownload(message.fileURL, message.fileName)
-        }
-      >
-        <Icon name="download" size={20} color="black" />
-      </Pressable>
-    </View>
-    ) : null}
-    {message.content && ( // Hiển thị nội dung tin nhắn văn bản nếu có
-      <View>
-        <Text style={styles.messageText}>{message.content}</Text>
-        <Text style={styles.messageTimestamp}>
-          {formatMessageTimestamp(message.timestamp)}
-        </Text>
-      </View>
-    )}
-  </View> 
-)}
-  </Pressable>
-))}
+          <Pressable
+            key={index}
+            onLongPress={() => handleLongPress(message, index)}
+            style={[
+              styles.messageContainer,
+              {
+                alignSelf: message.isSender ? "flex-end" : "flex-start",
+                backgroundColor: message.isSender ? "#94e5f2" : "#dddddd",
+                opacity:
+                  selectedMessage && selectedMessageIndex !== index ? 0.5 : 1,
+              },
+            ]}
+          >
+            {typeof message.content === "string" &&
+            message.content.startsWith("http") ? (
+              <View>
+                <Image
+                  source={{ uri: message.content }}
+                  style={styles.messageImage}
+                />
+                <Text style={styles.messageTimestamp}>
+                  {formatMessageTimestamp(message.timestamp)}
+                </Text>
+              </View>
+            ) : (
+              <View>
+                {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
+                  <View
+                    style={[styles.fileContainer, { flexDirection: "row" }]}
+                  >
+                    <Text style={styles.fileName}>{message.fileName}</Text>
+                    <Pressable
+                      style={{ marginLeft: 5 }}
+                      onPress={() =>
+                        handleFileDownload(message.fileURL, message.fileName)
+                      }
+                    >
+                      <Icon name="download" size={20} color="black" />
+                    </Pressable>
+                  </View>
+                ) : null}
+                {message.content && ( // Hiển thị nội dung tin nhắn văn bản nếu có
+                  <View>
+                    <Text style={styles.messageText}>{message.content}</Text>
+                    <Text style={styles.messageTimestamp}>
+                      {formatMessageTimestamp(message.timestamp)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </Pressable>
+        ))}
       </ScrollView>
       <View style={styles.inputContainer}>
-      <Pressable onPress={pickFile}>
+        <Pressable onPress={pickFile}>
           <Icon
             name="paperclip"
             size={25}
@@ -651,23 +666,29 @@ const retractMessage = async () => {
         </Pressable>
         {selectedImage && (
           <View style={styles.imagePreviewContainer}>
-            <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
-            <Pressable onPress={removeSelectedImage} style={styles.removeImageButton}>
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.selectedImage}
+            />
+            <Pressable
+              onPress={removeSelectedImage}
+              style={styles.removeImageButton}
+            >
               <FontAwesome name="times-circle" size={20} color="red" />
             </Pressable>
           </View>
         )}
         {selectedFile && (
-        <View style={styles.selectedImageContainer}>
-          <Text style={{ textAlign: "center", fontSize: 13 }}>
-            {selectedFile.name}
-          </Text>
-          {/* Hiển thị thông tin khác của file nếu cần */}
-          <Pressable onPress={cancelDoc} style={styles.cancelFileButton}>
-            <Icon name="close" size={14} color="red" />
-          </Pressable>
-        </View>
-      )}
+          <View style={styles.selectedImageContainer}>
+            <Text style={{ textAlign: "center", fontSize: 13 }}>
+              {selectedFile.name}
+            </Text>
+            {/* Hiển thị thông tin khác của file nếu cần */}
+            <Pressable onPress={cancelDoc} style={styles.cancelFileButton}>
+              <Icon name="close" size={14} color="red" />
+            </Pressable>
+          </View>
+        )}
         <Pressable
           style={styles.sendButton}
           onPress={() => {
@@ -691,7 +712,6 @@ const retractMessage = async () => {
 export default BoxChat;
 
 const styles = StyleSheet.create({
-  
   messageText: {
     fontSize: 16,
   },
@@ -725,13 +745,12 @@ const styles = StyleSheet.create({
     right: 0,
   },
   closeButton: {
-    marginLeft:800,
+    marginLeft: 800,
     padding: 10,
   },
   closeButtonText: {
-    color: 'black', // Màu của văn bản nút "Đóng"
-    fontWeight: 'bold',
-    
+    color: "black", // Màu của văn bản nút "Đóng"
+    fontWeight: "bold",
   },
   fileContainer: {
     backgroundColor: "#f2f2f2",
@@ -748,10 +767,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  headerImg:{
-    borderRadius:20,
-    width:50,
-    height:50
+  headerImg: {
+    borderRadius: 20,
+    width: 50,
+    height: 50,
   },
   sendImageButton: {
     width: 40,
@@ -763,15 +782,15 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   imagePreviewContainer: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
+    position: "relative",
+    flexDirection: "row",
+    alignItems: "center",
   },
   removeImageButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: "rgba(255,255,255,0.5)",
     borderRadius: 20,
     padding: 5,
   },
@@ -834,13 +853,13 @@ const styles = StyleSheet.create({
     color: "gray",
   },
   btnBack: {
-    position: 'absolute',
+    position: "absolute",
     top: 5,
     left: 20,
     padding: 10,
   },
   txtBack: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
   },
   selectedImage: {
