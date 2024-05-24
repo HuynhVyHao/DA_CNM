@@ -579,7 +579,7 @@ const BoxChat = ({ friend, user, onClose }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Image source={{ uri: friend.avatarUrl }} style={styles.headerImg} />
+        <Image source={{ uri: friend.avatarUser }} style={styles.headerImg} />
         <Text style={styles.headerText}>{friend.hoTen}</Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
           <Text style={styles.closeButtonText}>Đóng</Text>

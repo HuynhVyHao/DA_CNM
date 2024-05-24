@@ -19,7 +19,6 @@ import Icon from "react-native-vector-icons/AntDesign";
 import * as DocumentPicker from "expo-document-picker";
 
 const GroupChats = ({ user, onClose, group }) => {
-  const [boxChatGroupData, setBoxChatGroupData] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const scrollViewRef = useRef(null);
@@ -64,23 +63,32 @@ const GroupChats = ({ user, onClose, group }) => {
     }
   };
   const handleFileDownload = async (fileURL, fileName) => {
-    try {
-      // Tạo một phần tử <a> ẩn để tải xuống tệp
-      const link = document.createElement("a");
-      link.href = fileURL;
-      link.setAttribute("download", fileName);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  try {
+    // Tải file về dưới dạng blob
+    const response = await fetch(fileURL);
+    const blob = await response.blob();
 
-      // Hiển thị thông báo cho người dùng
-      //alert("File đã được tải xuống.");
+    // Tạo URL cho blob
+    const url = window.URL.createObjectURL(blob);
 
-      console.log("File downloaded:", fileName);
-    } catch (error) {
-      console.error("Download error:", error);
-    }
-  };
+    // Tạo một phần tử <a> ẩn để tải xuống tệp
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Giải phóng URL cho blob
+    window.URL.revokeObjectURL(url);
+
+    // Hiển thị thông báo cho người dùng
+    console.log("File downloaded:", fileName);
+  } catch (error) {
+    console.error("Download error:", error);
+  }
+};
+
 
   const cancelDoc = () => {
     setSelectedFile(null);
@@ -206,7 +214,7 @@ const GroupChats = ({ user, onClose, group }) => {
           <View style={styles.modalContent}>
             {selectedMessage && (
               <>
-                {selectedMessage.isSender ? (
+                {selectedMessage.senderEmail === user.email ? ( // Kiểm tra xem người gửi có phải là người dùng hiện tại không
                   <>
                     <Pressable style={styles.modalItem} onPress={deleteMessage}>
                       <Icon name="delete" size={25} />
@@ -233,6 +241,7 @@ const GroupChats = ({ user, onClose, group }) => {
       </Modal>
     );
   };
+  
   // Hàm gửi file
   const sendFile = async () => {
     try {
@@ -240,13 +249,13 @@ const GroupChats = ({ user, onClose, group }) => {
         alert("Vui lòng chọn một file trước khi gửi.");
         return;
       }
-
-      const timestamp = new Date().toISOString(); // Định nghĩa và gán giá trị cho biến timestamp
+  
+      const timestamp = new Date().toISOString();
+  
       // Tải tệp lên S3
       const fileURL = await uploadFileToS3(selectedFile);
-      // Thực hiện các hành động khác cần thiết (ví dụ: gửi URL của tệp đến máy chủ của bạn)
-      const fileSize = selectedFile.size; // Dung lượng của file (đơn vị byte)
-
+      const fileSize = selectedFile.size;
+  
       // Tính dung lượng của file và đơn vị đo lường
       let fileSizeWithUnit = "";
       if (fileSize < 1024) {
@@ -256,52 +265,42 @@ const GroupChats = ({ user, onClose, group }) => {
       } else {
         fileSizeWithUnit = `${(fileSize / (1024 * 1024)).toFixed(2)} MB`;
       }
-
-      // Thay đổi nội dung của tin nhắn thành dung lượng của file với đơn vị
+  
       const content = `${fileSizeWithUnit}`;
-
+  
       const senderMessage = {
         content: content,
-        senderSoDienThoai: user.soDienThoai,
-        groupId: selectedGroupID, // Thêm trường thông tin nhóm
+        senderEmail: user.email,
+        groupId: selectedGroupID,
         timestamp: timestamp,
         isSender: true,
         fileURL: fileURL,
-        fileName: selectedFile.name, // Thêm URL của file vào tin nhắn
+        fileName: selectedFile.name,
       };
-      const receiverMessage = {
-        content: content,
-        senderSoDienThoai: user.soDienThoai,
-        groupId: selectedGroupID, // Thêm trường thông tin nhóm
-        timestamp: timestamp,
-        isSender: false,
-        fileURL: fileURL,
-        fileName: selectedFile.name, // Thêm URL của file vào tin nhắn
-      };
-
-      // Lưu tin nhắn vào cơ sở dữ liệu
+  
       const params = {
-        TableName: "GroupChats", // Thay đổi đây
+        TableName: "GroupChats",
         Key: {
-          groupId: selectedGroupID, // Thay đổi đây
+          groupId: senderMessage.groupId,
         },
-        UpdateExpression: "SET messages = list_append(messages, :newMessage)",
+        UpdateExpression:
+          "SET messages = list_append(if_not_exists(messages, :empty_list), :newMessage)",
         ExpressionAttributeValues: {
-          ":newMessage": [senderMessage, receiverMessage],
+          ":empty_list": [],
+          ":newMessage": [senderMessage],
         },
         ReturnValues: "UPDATED_NEW",
       };
       await dynamoDB.update(params).promise();
-
-      scrollToBottom(); // Cuộn xuống cuối danh sách tin nhắn
+  
       setMessages([...messages, senderMessage]);
-
-      // Reset selectedFile state
       cancelDoc();
+      scrollToBottom();
     } catch (error) {
       console.error("Error sending file:", error);
     }
   };
+  
 
   const selectImage = async () => {
     try {
@@ -323,82 +322,7 @@ const GroupChats = ({ user, onClose, group }) => {
     setSelectedImage(null);
   };
 
-  // const sendMessage = async () => {
-  //   if (newMessage.trim() === "" && !selectedImage) {
-  //     return;
-  //   }
-
-  //   const timestamp = new Date().toISOString();
-
-  //   let senderMessage = null;
-  //   let receiverMessage = null;
-
-  //   if (newMessage.trim() !== "") {
-  //     senderMessage = {
-  //       content: newMessage,
-  //       senderSoDienThoai: user.soDienThoai,
-  //       groupId: selectedGroupID, // Thay đổi đây
-  //       timestamp: timestamp,
-  //       isSender: true,
-  //     };
-
-  //     receiverMessage = {
-  //       content: newMessage,
-  //       senderSoDienThoai: user.soDienThoai,
-  //       groupId:selectedGroupID, // Thay đổi đây
-  //       timestamp: timestamp,
-  //       isSender: false,
-  //     };
-  //   }
-
-  //   if (selectedImage) {
-  //     const imageUrl = await uploadImageToS3(selectedImage);
-  //     if (imageUrl) {
-  //       senderMessage = {
-  //         content: imageUrl,
-  //         senderSoDienThoai: user.soDienThoai,
-  //         groupId: selectedGroupID, // Thay đổi đây
-  //         timestamp: timestamp,
-  //         isSender: true,
-  //       };
-
-  //       receiverMessage = {
-  //         content: imageUrl,
-  //         senderSoDienThoai: user.soDienThoai,
-  //         groupId: selectedGroupID, // Thay đổi đây
-  //         timestamp: timestamp,
-  //         isSender: false,
-  //       };
-  //     } else {
-  //       console.error("Error uploading image to S3");
-  //       return;
-  //     }
-  //   }
-
-  //   try {
-  //     if (senderMessage && receiverMessage) {
-  //       const params = {
-  //         TableName: "GroupChats", // Thay đổi đây
-  //         Key: {
-  //           groupId: selectedGroupID, // Thay đổi đây
-  //         },
-  //         UpdateExpression: "SET messages = list_append(messages, :newMessage)",
-  //         ExpressionAttributeValues: {
-  //           ":newMessage": [senderMessage, receiverMessage],
-  //         },
-  //         ReturnValues: "UPDATED_NEW",
-  //       };
-  //       await dynamoDB.update(params).promise();
-  //     }
-
-  //     setMessages([...messages, senderMessage]);
-  //     setNewMessage("");
-  //     setSelectedImage(null);
-  //     scrollToBottom();
-  //   } catch (error) {
-  //     console.error("Error sending message:", error);
-  //   }
-  // };
+  
   useEffect(() => {
     if (group && group.groupId) {
       setSelectedGroupID(group.groupId);
@@ -462,19 +386,74 @@ const GroupChats = ({ user, onClose, group }) => {
       return null; // Trả về null nếu xảy ra lỗi
     }
   };
-
+  const sendImage = async () => {
+    try {
+      if (!selectedImage) {
+        alert("Vui lòng chọn một hình ảnh trước khi gửi.");
+        return;
+      }
+      const timestamp = new Date().toISOString();
+      // Tải hình ảnh lên S3
+      const imageUrl = await uploadImageToS3(selectedImage);
+  
+      const senderMessage = { 
+        content: imageUrl,
+        senderEmail: user.email,
+        groupId: group.groupId,
+        timestamp: timestamp,
+        isSender: true,
+      };
+      const params = {
+        TableName: "GroupChats",
+        Key: {
+          groupId: senderMessage.groupId,
+        },
+        UpdateExpression:
+          "SET messages = list_append(if_not_exists(messages, :empty_list), :newMessage)",
+        ExpressionAttributeValues: {
+          ":empty_list": [],
+          ":newMessage": [senderMessage],
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+  
+      // Thêm đoạn mã này để ghi log chi tiết cho yêu cầu
+      console.log("Params sent to DynamoDB: ", JSON.stringify(params, null, 2));
+  
+      await dynamoDB.update(params).promise();
+  
+      setMessages([...messages, senderMessage]);
+      cancelDoc();
+      scrollToBottom();
+    } catch (error) {
+      console.error("Error sending image:", error);
+    }
+  };
+  
   const sendMessage = async () => {
+    let senderMessage = null;
     try {
       if (newMessage.trim() === "") return;
 
       const timestamp = new Date().toISOString();
-      const senderMessage = {
+       senderMessage = {
         content: newMessage,
         groupId: group.groupId,
         senderEmail: user.email,
         timestamp: timestamp,
       };
-
+      if (selectedImage) {
+        const imageUrl = await uploadImageToS3(selectedImage);
+        if (imageUrl) {
+          senderMessage = {
+            content: imageUrl,
+            senderEmail:user,email,
+            groupId: group.groupId,
+            timestamp: timestamp,
+            isSender: true,
+          };
+        }
+      }
       const params = {
         TableName: "GroupChats",
         Key: {
@@ -648,39 +627,47 @@ const GroupChats = ({ user, onClose, group }) => {
                       {message.senderInfo.hoTen}
                     </Text>
                   )}
-                  {message.fileURL ? (
-                    <View
-                      style={[styles.fileContainer, { flexDirection: "row" }]}
+                 {typeof message.content === "string" &&
+            message.content.startsWith("http") ? (
+              <View>
+                <Image
+                  source={{ uri: message.content }}
+                  style={styles.messageImage}
+                />
+                <Text style={styles.messageTimestamp}>
+                  {formatMessageTimestamp(message.timestamp)}
+                </Text>
+              </View>
+            ) : (
+              <View>
+                {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
+                  <View
+                    style={[styles.fileContainer, { flexDirection: "row" }]}
+                  >
+                    <Text style={styles.fileName}>{message.fileName}</Text>
+                    <Pressable
+                      style={{ marginLeft: 5 }}
+                      onPress={() =>
+                        handleFileDownload(message.fileURL, message.fileName)
+                      }
                     >
-                      <Text style={styles.fileName}>
-                        File: {message.fileName}
-                      </Text>
-                      <Pressable
-                        style={{ marginLeft: 5 }}
-                        onPress={() =>
-                          handleFileDownload(message.fileURL, message.fileName)
-                        }
-                      >
-                        <Icon name="download" size={20} color="black" />
-                      </Pressable>
-                    </View>
-                  ) : message.image ? (
-                    <Image
-                      resizeMode="contain"
-                      source={{ uri: message.image }}
-                      style={{
-                        width: "90%",
-                        aspectRatio: 1,
-                        borderRadius: 10,
-                        alignSelf: "center",
-                      }}
-                    />
-                  ) : (
+                      <Icon name="download" size={20} color="black" />
+                    </Pressable>
+                  </View>
+                ) : null}
+                {message.content && ( // Hiển thị nội dung tin nhắn văn bản nếu có
+                  <View>
                     <Text style={styles.messageText}>{message.content}</Text>
-                  )}
-                  <Text style={styles.messageTimestamp}>
+                    <Text style={styles.messageTimestamp}>
+                      {formatMessageTimestamp(message.timestamp)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+                  {/* <Text style={styles.messageTimestamp}>
                     {formatMessageTimestamp(message.timestamp)}
-                  </Text>
+                  </Text> */}
                 </Pressable>
               </View>
             )}
@@ -701,39 +688,47 @@ const GroupChats = ({ user, onClose, group }) => {
                     },
                   ]}
                 >
-                  {message.fileURL ? (
-                    <View
-                      style={[styles.fileContainer, { flexDirection: "row" }]}
+                  {typeof message.content === "string" &&
+            message.content.startsWith("http") ? (
+              <View>
+                <Image
+                  source={{ uri: message.content }}
+                  style={styles.messageImage}
+                />
+                <Text style={styles.messageTimestamp}>
+                  {formatMessageTimestamp(message.timestamp)}
+                </Text>
+              </View>
+            ) : (
+              <View>
+                {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
+                  <View
+                    style={[styles.fileContainer, { flexDirection: "row" }]}
+                  >
+                    <Text style={styles.fileName}>{message.fileName}</Text>
+                    <Pressable
+                      style={{ marginLeft: 5 }}
+                      onPress={() =>
+                        handleFileDownload(message.fileURL, message.fileName)
+                      }
                     >
-                      <Text style={styles.fileName}>
-                        File: {message.fileName}
-                      </Text>
-                      <Pressable
-                        style={{ marginLeft: 5 }}
-                        onPress={() =>
-                          handleFileDownload(message.fileURL, message.fileName)
-                        }
-                      >
-                        <Icon name="download" size={20} color="black" />
-                      </Pressable>
-                    </View>
-                  ) : message.image ? (
-                    <Image
-                      resizeMode="contain"
-                      source={{ uri: message.image }}
-                      style={{
-                        width: "100%",
-                        aspectRatio: 1,
-                        borderRadius: 10,
-                        alignSelf: "center",
-                      }}
-                    />
-                  ) : (
+                      <Icon name="download" size={20} color="black" />
+                    </Pressable>
+                  </View>
+                ) : null}
+                {message.content && ( // Hiển thị nội dung tin nhắn văn bản nếu có
+                  <View>
                     <Text style={styles.messageText}>{message.content}</Text>
-                  )}
-                  <Text style={styles.messageTimestamp}>
+                    <Text style={styles.messageTimestamp}>
+                      {formatMessageTimestamp(message.timestamp)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+                  {/* <Text style={styles.messageTimestamp}>
                     {formatMessageTimestamp(message.timestamp)}
-                  </Text>
+                  </Text> */}
                 </Pressable>
               </View>
             )}
@@ -789,7 +784,7 @@ const GroupChats = ({ user, onClose, group }) => {
             if (newMessage.trim() !== "") {
               sendMessage(); // Gửi tin nhắn văn bản nếu có nội dung tin nhắn
             } else if (selectedImage !== null) {
-              sendMessage(); // Gửi hình ảnh nếu có hình ảnh được chọn
+              sendImage(); // Gửi hình ảnh nếu có hình ảnh được chọn
             } else if (selectedFile !== null) {
               sendFile(); // Gửi file nếu có file được chọn
             }

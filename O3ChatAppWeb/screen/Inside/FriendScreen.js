@@ -414,9 +414,9 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
               >
                 <Image
                   style={styles.avatarImage}
-                  source={{ uri: friend.avatarUser }}
+                  source={{ uri: friends.avatarUser }}
                 />
-                <Text style={styles.txtUser}>{friend.hoTen}</Text>
+                <Text style={styles.txtUser}>{friends.hoTen}</Text>
               </Pressable>
             ))
           ) : (
