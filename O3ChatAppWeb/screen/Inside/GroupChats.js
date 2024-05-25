@@ -15,6 +15,8 @@ import { DynamoDB, S3 } from "aws-sdk";
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION, S3_BUCKET_NAME } from "@env";
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+
+import Iconn from 'react-native-vector-icons/MaterialIcons';
 import Icon from "react-native-vector-icons/AntDesign";
 import * as DocumentPicker from "expo-document-picker";
 
@@ -37,6 +39,7 @@ const GroupChats = ({ user, onClose, group }) => {
   const [selectedFriends, setSelectedFriends] = useState({});
   const [friendsNotInGroup, setFriendsNotInGroup] = useState([]);
   const [friendsInGroup, setFriendsInGroup] = useState([]);
+  const bucketName =S3_BUCKET_NAME
   const s3 = new S3({
     accessKeyId: ACCESS_KEY_ID,
     secretAccessKey: SECRET_ACCESS_KEY,
@@ -114,10 +117,10 @@ const GroupChats = ({ user, onClose, group }) => {
           <Pressable style={styles.optionItem} onPress={openAddMemberModal}>
             <Text style={styles.optionText}>Thêm thành viên</Text>
           </Pressable>
-          <Pressable
-            style={styles.optionItem}
-            onPress={handleDeleteSelectedMembers}
-          >
+          <Pressable style={styles.optionItem} onPress={handleChangeLeader}>
+            <Text style={styles.optionText}>Đổi trưởng nhóm</Text>
+          </Pressable>
+          <Pressable style={styles.optionItem} onPress={handleDeleteSelectedMembers}>
             <Text style={styles.optionText}>Xóa thành viên</Text>
           </Pressable>
           <Pressable style={styles.optionItem} onPress={leaveGroup}>
@@ -129,14 +132,72 @@ const GroupChats = ({ user, onClose, group }) => {
 
           <Pressable
             onPress={() => setIsOptionsVisible(false)}
-            style={styles.cancelButton}
-          >
+            style={styles.cancelButton}>
             <Text style={styles.cancelButtonText}>Hủy</Text>
           </Pressable>
         </View>
         </View>
       </Modal>
     );
+  };
+  const handleChangeLeader = async () =>{
+    if (!isGroupLeader()) {
+      alert("Bạn phải là trưởng nhóm để thực hiện chức năng này!");
+      return;
+    }
+  
+    const selectedMembers = Object.keys(selectedFriends).filter(
+      (email) => selectedFriends[email]
+    );
+  
+    if (selectedMembers.length === 0) {
+      alert("Bạn chưa chọn thành viên!");
+      return;
+    }
+  
+    if (selectedMembers.length > 1) {
+      alert("Chỉ được chuyển nhóm trưởng cho một người!");
+      return;
+    }
+  
+    const newLeaderEmail = selectedMembers[0];
+    if (newLeaderEmail === user.email) {
+      alert("Không thể chuyển nhóm trưởng cho chính bạn!");
+      return;
+    }
+  
+    try {
+      const updatedGroupRoles = { ...groups.roles };
+      updatedGroupRoles[newLeaderEmail] = "Trưởng nhóm";
+      updatedGroupRoles[user.email] = "Thành viên";
+  
+      const params = {
+        TableName: "GroupChats",
+        Key: {
+          groupId: `${groups.groupId}`,
+        },
+        UpdateExpression: "SET #roles = :roles",
+        ExpressionAttributeNames: {
+          "#roles": "roles",
+        },
+        ExpressionAttributeValues: {
+          ":roles": updatedGroupRoles,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await dynamoDB.update(params).promise();
+  
+      setGroup((prevGroup) => ({
+        ...prevGroup,
+        roles: updatedGroupRoles,
+      }));
+  
+      alert("Chuyển đổi nhóm trưởng thành công!");
+      setIsOptionsVisible(false); // Nếu có modal để chọn thành viên, đóng nó
+    } catch (error) {
+      console.error("Error changing group leader:", error);
+      alert("Đã xảy ra lỗi khi chuyển đổi nhóm trưởng!");
+    }
   };
   const addSelectedMembersToGroup = async () => {
     try {
@@ -147,6 +208,7 @@ const GroupChats = ({ user, onClose, group }) => {
         console.log("No members selected.");
         return;
       }
+      
 
       const updatedGroupMembers = [...groups.members, ...selectedMembers];
       const updatedGroupRoles = { ...groups.roles };
@@ -183,14 +245,15 @@ const GroupChats = ({ user, onClose, group }) => {
       console.error("Error adding members to groups:", error);
     }
   };
+  
    // Hàm xử lý khi người dùng chọn "Rời nhóm"
    const leaveGroup = async () => {
-    
+    if(isGroupLeader()){
+      alert("Bạn phải chuyển quyền trưởng nhóm!")
+      return;
+    }
     try {
-      if(isGroupLeader){
-        alert("Bạn phải chuyển quyền trưởng nhóm!")
-        return;
-      }
+      
       // Loại bỏ người dùng ra khỏi danh sách thành viên của nhóm
       const updatedGroupMembers = groups.members.filter(
         (member) => member !== user.email
@@ -495,7 +558,7 @@ const GroupChats = ({ user, onClose, group }) => {
   const deleteFileFromStorage = async (filePath) => {
     try {
       const params = {
-        Bucket: "longs3", // Thay thế bằng tên bucket của bạn
+        Bucket: bucketName, // Thay thế bằng tên bucket của bạn
         Key: filePath, // Đường dẫn đến file trong bucket
       };
 
@@ -597,8 +660,8 @@ const GroupChats = ({ user, onClose, group }) => {
         onRequestClose={closeModal}
       >
         <Pressable style={styles.modalOverlay} onPress={closeModal} />
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
+        <View style={styles.modalContainerr}>
+          <View style={styles.modalContentt}>
             {selectedMessage && (
               <>
                 {selectedMessage.senderEmail === user.email ? ( // Kiểm tra xem người gửi có phải là người dùng hiện tại không
@@ -640,7 +703,7 @@ const GroupChats = ({ user, onClose, group }) => {
       const timestamp = new Date().toISOString();
   
       // Tải tệp lên S3
-      const fileURL = await uploadFileToS3(selectedFile);
+      const fileURL = await uploadImageToS3 (selectedFile.uri);
       const fileSize = selectedFile.size;
   
       // Tính dung lượng của file và đơn vị đo lường
@@ -657,13 +720,13 @@ const GroupChats = ({ user, onClose, group }) => {
   
       const senderMessage = {
         content: content,
+        groupId: group.groupId,
         senderEmail: user.email,
-        groupId: selectedGroupID,
         timestamp: timestamp,
-        isSender: true,
         fileURL: fileURL,
         fileName: selectedFile.name,
       };
+      
   
       const params = {
         TableName: "GroupChats",
@@ -679,6 +742,7 @@ const GroupChats = ({ user, onClose, group }) => {
         ReturnValues: "UPDATED_NEW",
       };
       await dynamoDB.update(params).promise();
+      
   
       setMessages([...messages, senderMessage]);
       cancelDoc();
@@ -784,7 +848,7 @@ const GroupChats = ({ user, onClose, group }) => {
       const imageUrl = await uploadImageToS3(selectedImage);
   
       const senderMessage = { 
-        content: imageUrl,
+        image: imageUrl,
         senderEmail: user.email,
         groupId: groups.groupId,
         timestamp: timestamp,
@@ -833,7 +897,7 @@ const GroupChats = ({ user, onClose, group }) => {
         const imageUrl = await uploadImageToS3(selectedImage);
         if (imageUrl) {
           senderMessage = {
-            content: imageUrl,
+            image: imageUrl,
             senderEmail:user,email,
             groupId: groups.groupId,
             timestamp: timestamp,
@@ -857,7 +921,8 @@ const GroupChats = ({ user, onClose, group }) => {
       await dynamoDB.update(params).promise();
 
       setMessages([...messages, senderMessage]);
-      setNewMessage("");
+      setNewMessage("")
+      setSelectedImage(null);;
       scrollToBottom();
     } catch (error) {
       console.error("Error sending message:", error);
@@ -901,12 +966,12 @@ const GroupChats = ({ user, onClose, group }) => {
   const uploadImageToS3 = async (fileUri) => {
     const response = await fetch(fileUri);
     const blob = await response.blob();
-
+    const ContentType = blob.type;
     const params = {
-      Bucket: "longs3",
-      Key: "avatar_" + new Date().getTime() + ".jpg",
+      Bucket: bucketName,
+      Key: `${user.email}_${Date.now().toString()}.${ContentType}`,
       Body: blob,
-      ContentType: "image/jpeg/jfif/png/gif",
+      ContentType,
     };
 
     try {
@@ -917,7 +982,6 @@ const GroupChats = ({ user, onClose, group }) => {
       return null;
     }
   };
-
   const readAsBuffer = async (file) => {
     try {
       // Kiểm tra nếu đối tượng file không phải là một Blob, chuyển đổi nó thành Blob
@@ -950,7 +1014,7 @@ const GroupChats = ({ user, onClose, group }) => {
       const fileBuffer = await readAsBuffer(file);
 
       const params = {
-        Bucket: "longs3",
+        Bucket: bucketName,
         Key: `${file.name}`, // Đường dẫn lưu trữ trên S3
         Body: fileBuffer,
         ACL: "public-read", // ACL để cấp quyền truy cập cho tập tin
@@ -982,7 +1046,7 @@ const GroupChats = ({ user, onClose, group }) => {
           onPress={() => setIsOptionsVisible(true)}
           style={styles.optionsButton}
         >
-          <Icon name="ellipsis1" size={25} color="white" />
+          <Iconn name="menu" size={30} color="black" />
         </Pressable>
         {renderOptions()}
       </View>
@@ -1023,11 +1087,10 @@ const GroupChats = ({ user, onClose, group }) => {
                       {message.senderInfo.hoTen}
                     </Text>
                   )}
-                 {typeof message.content === "string" &&
-            message.content.startsWith("http") ? (
+                {typeof message.content === "string" && message.content.startsWith("http") || (typeof message.image === "string" && message.image.startsWith("http")) ? (
               <View>
                 <Image
-                  source={{ uri: message.content }}
+                  source={{ uri: message.image }}
                   style={styles.messageImage}
                 />
                 <Text style={styles.messageTimestamp}>
@@ -1036,21 +1099,21 @@ const GroupChats = ({ user, onClose, group }) => {
               </View>
             ) : (
               <View>
-                {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
-                  <View
-                    style={[styles.fileContainer, { flexDirection: "row" }]}
-                  >
-                    <Text style={styles.fileName}>{message.fileName}</Text>
-                    <Pressable
-                      style={{ marginLeft: 5 }}
-                      onPress={() =>
-                        handleFileDownload(message.fileURL, message.fileName)
-                      }
-                    >
-                      <Icon name="download" size={20} color="black" />
-                    </Pressable>
-                  </View>
-                ) : null}
+                 {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
+      <View
+        style={[styles.fileContainer, { flexDirection: "row" }]}
+      >
+        <Text style={styles.fileName}>{message.fileName}</Text>
+        <Pressable
+          style={{ marginLeft: 5 }}
+          onPress={() =>
+            handleFileDownload(message.fileURL, message.fileName)
+          }
+        >
+          <Icon name="download" size={20} color="black" />
+        </Pressable>
+      </View>
+    ) : null}
                 {message.content && ( // Hiển thị nội dung tin nhắn văn bản nếu có
                   <View>
                     <Text style={styles.messageText}>{message.content}</Text>
@@ -1084,11 +1147,11 @@ const GroupChats = ({ user, onClose, group }) => {
                     },
                   ]}
                 >
-                  {typeof message.content === "string" &&
-            message.content.startsWith("http") ? (
+                  {typeof message.content === "string" && message.content.startsWith("http") || (typeof message.image === "string" && message.image.startsWith("http")) ? (
+
               <View>
                 <Image
-                  source={{ uri: message.content }}
+                  source={{ uri: message.image}}
                   style={styles.messageImage}
                 />
                 <Text style={styles.messageTimestamp}>
@@ -1338,7 +1401,7 @@ optionItem: {
 optionsButton: {
     position: "absolute",
     right: 10,
-    top: 10,
+    top: 15,
   },
 cancelButton: {
     marginTop: 10,
@@ -1376,7 +1439,7 @@ checkbox: {
     borderRadius: 10,
     elevation: 5,
     padding: 20,
-    justifyContent: 'space-between', // Ensures the footer stays at the bottom
+    justifyContent: 'space-around', // Ensures the footer stays at the bottom
   },
   modalItem: {
     flex: 1, // Sử dụng flex để tin nhắn tự mở rộng theo nội dung của nó
@@ -1540,5 +1603,23 @@ checkbox: {
   addMemberButtonText: {
     color: "white",
     fontWeight: "bold",
+  },
+  modalContainerr: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    top: 400,
+  
+  
+    
+    
+  },
+  modalContentt: {
+    backgroundColor: "white",
+    borderRadius: 10,
+    elevation: 5,
+    padding: 20,
+    alignSelf: "stretch",
+    flexDirection: "row",
   },
 });

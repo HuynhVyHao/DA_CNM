@@ -90,7 +90,7 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
   const fetchFriendRequests = async () => {
     try {
       const getFriendRequestsParams = {
-        TableName: "FriendRequest",
+        TableName: "FriendRequests",
         Key: { email: user?.email },
       };
       const friendRequestsData = await dynamoDB
@@ -167,7 +167,7 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
       // Xóa lời mời kết bạn đã được chấp nhận khỏi danh sách lời mời kết bạn
 
       const getRequestParams = {
-        TableName: "FriendRequest",
+        TableName: "FriendRequests",
         Key: { email: user?.email },
       };
       const requestResult = await dynamoDB.get(getRequestParams).promise();
@@ -184,7 +184,7 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
 
       // Cập nhật lại mảng friendRequests mới vào cơ sở dữ liệu
       const updateParams = {
-        TableName: "FriendRequest",
+        TableName: "FriendRequests",
         Key: { email: user?.email },
         UpdateExpression: "SET friendRequests = :updatedRequests",
         ExpressionAttributeValues: {
@@ -204,7 +204,7 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
     try {
       // Lấy danh sách friendRequests từ cơ sở dữ liệu
       const getRequestParams = {
-        TableName: "FriendRequest",
+        TableName: "FriendRequests",
         Key: { email: user?.email },
       };
       const requestResult = await dynamoDB.get(getRequestParams).promise();
@@ -221,7 +221,7 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
 
       // Cập nhật lại mảng friendRequests mới vào cơ sở dữ liệu
       const updateParams = {
-        TableName: "FriendRequest",
+        TableName: "FriendRequests",
         Key: { email: user?.email },
         UpdateExpression: "SET friendRequests = :updatedRequests",
         ExpressionAttributeValues: {

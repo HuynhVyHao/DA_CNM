@@ -30,6 +30,8 @@ const BoxChat = ({ friend, user, onClose }) => {
   const [isScrolledUp, setIsScrolledUp] = useState(false); // Thêm state để theo dõi việc cuộn lên
   const [selectedFile, setSelectedFile] = useState(null);
 
+const bucketName =S3_BUCKET_NAME
+
   const handleClose = () => {
     onClose();
   };
@@ -90,7 +92,7 @@ const BoxChat = ({ friend, user, onClose }) => {
   const deleteFileFromStorage = async (filePath) => {
     try {
       const params = {
-        Bucket: "longs3", // Thay thế bằng tên bucket của bạn
+        Bucket: bucketName, // Thay thế bằng tên bucket của bạn
         Key: filePath, // Đường dẫn đến file trong bucket
       };
 
@@ -248,14 +250,16 @@ const BoxChat = ({ friend, user, onClose }) => {
         alert("Vui lòng chọn một file trước khi gửi.");
         return;
       }
-
+  
       const timestamp = new Date().toISOString(); // Định nghĩa và gán giá trị cho biến timestamp
       let senderMessage, receiverMessage;
+  
       // Tải tệp lên S3
-      const fileURL = await uploadFileToS3(selectedFile);
+      const fileURL = await uploadImageToS3(selectedFile.uri);
+  
       // Thực hiện các hành động khác cần thiết (ví dụ: gửi URL của tệp đến máy chủ của bạn)
       const fileSize = selectedFile.size; // Dung lượng của file (đơn vị byte)
-
+  
       // Tính dung lượng của file và đơn vị đo lường
       let fileSizeWithUnit = "";
       if (fileSize < 1024) {
@@ -265,10 +269,10 @@ const BoxChat = ({ friend, user, onClose }) => {
       } else {
         fileSizeWithUnit = `${(fileSize / (1024 * 1024)).toFixed(2)} MB`;
       }
-
+  
       // Thay đổi nội dung của tin nhắn thành dung lượng của file với đơn vị
       const content = `${fileSizeWithUnit}`;
-      //alert('File đã được gửi thành công.');
+  
       senderMessage = {
         content: content,
         senderEmail: `${user.email}_${friend.email}`,
@@ -278,6 +282,7 @@ const BoxChat = ({ friend, user, onClose }) => {
         fileURL: fileURL,
         fileName: selectedFile.name, // Thêm URL của file vào tin nhắn
       };
+  
       receiverMessage = {
         content: content,
         senderEmail: `${user.email}_${friend.email}`,
@@ -287,6 +292,7 @@ const BoxChat = ({ friend, user, onClose }) => {
         fileURL: fileURL,
         fileName: selectedFile.name, // Thêm URL của file vào tin nhắn
       };
+  
       if (senderMessage) {
         const senderParams = {
           TableName: "BoxChats",
@@ -301,7 +307,7 @@ const BoxChat = ({ friend, user, onClose }) => {
         };
         await dynamoDB.update(senderParams).promise();
       }
-
+  
       if (receiverMessage) {
         const receiverParams = {
           TableName: "BoxChats",
@@ -316,15 +322,18 @@ const BoxChat = ({ friend, user, onClose }) => {
         };
         await dynamoDB.update(receiverParams).promise();
       }
+  
       scrollToBottom(); // Cuộn xuống cuối danh sách tin nhắn
       setMessages([...messages, senderMessage]);
-
+  
       // Reset selectedFile state
       cancelDoc();
     } catch (error) {
       console.error("Error sending file:", error);
+      alert("Đã xảy ra lỗi khi gửi file. Vui lòng thử lại sau.");
     }
   };
+  
 
   const selectImage = async () => {
     try {
@@ -378,7 +387,7 @@ const BoxChat = ({ friend, user, onClose }) => {
       const imageUrl = await uploadImageToS3(selectedImage);
       if (imageUrl) {
         senderMessage = {
-          content: imageUrl,
+          image: imageUrl,
           senderEmail: `${user.email}_${friend.email}`,
           receiverEmail: friend.email,
           timestamp: timestamp,
@@ -386,7 +395,7 @@ const BoxChat = ({ friend, user, onClose }) => {
         };
 
         receiverMessage = {
-          content: imageUrl,
+          image: imageUrl,
           senderEmail: `${friend.email}_${user.email}`,
           receiverEmail: user.email,
           timestamp: timestamp,
@@ -506,14 +515,21 @@ const BoxChat = ({ friend, user, onClose }) => {
   const uploadImageToS3 = async (fileUri) => {
     const response = await fetch(fileUri);
     const blob = await response.blob();
-
+    const ContentType = blob.type;
+  
+    const s3 = new S3({
+      region: REGION,
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
+    });
+  
     const params = {
-      Bucket: "longs3",
-      Key: "avatar_" + new Date().getTime() + ".jpg",
+      Bucket: bucketName,
+      Key: `${user.email}_${Date.now().toString()}.${ContentType}`,
       Body: blob,
-      ContentType: "image/jpeg/jfif/png/gif",
+      ContentType,
     };
-
+  
     try {
       const data = await s3.upload(params).promise();
       return data.Location; // Return image URL
@@ -522,6 +538,7 @@ const BoxChat = ({ friend, user, onClose }) => {
       return null;
     }
   };
+  
 
   const readAsBuffer = async (file) => {
     try {
@@ -555,7 +572,7 @@ const BoxChat = ({ friend, user, onClose }) => {
       const fileBuffer = await readAsBuffer(file);
 
       const params = {
-        Bucket: "longs3",
+        Bucket: bucketName,
         Key: `${file.name}`, // Đường dẫn lưu trữ trên S3
         Body: fileBuffer,
         ACL: "public-read", // ACL để cấp quyền truy cập cho tập tin
@@ -605,43 +622,52 @@ const BoxChat = ({ friend, user, onClose }) => {
               },
             ]}
           >
-            {typeof message.content === "string" &&
-            message.content.startsWith("http") ? (
-              <View>
-                <Image
-                  source={{ uri: message.content }}
-                  style={styles.messageImage}
-                />
-                <Text style={styles.messageTimestamp}>
-                  {formatMessageTimestamp(message.timestamp)}
-                </Text>
-              </View>
-            ) : (
-              <View>
-                {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
-                  <View
-                    style={[styles.fileContainer, { flexDirection: "row" }]}
-                  >
-                    <Text style={styles.fileName}>{message.fileName}</Text>
-                    <Pressable
-                      style={{ marginLeft: 5 }}
-                      onPress={() =>
-                        handleFileDownload(message.fileURL, message.fileName)
-                      }
-                    >
-                      <Icon name="download" size={20} color="black" />
-                    </Pressable>
-                  </View>
-                ) : null}
-                {message.content && ( // Hiển thị nội dung tin nhắn văn bản nếu có
-                  <View>
-                    <Text style={styles.messageText}>{message.content}</Text>
-                    <Text style={styles.messageTimestamp}>
-                      {formatMessageTimestamp(message.timestamp)}
-                    </Text>
-                  </View>
-                )}
-              </View>
+            {typeof message.content === "string" && message.content.startsWith("http") ? (
+  <View>
+    <Image
+      source={{ uri: message.content }}
+      style={styles.messageImage}
+    />
+    <Text style={styles.messageTimestamp}>
+      {formatMessageTimestamp(message.timestamp)}
+    </Text>
+  </View>
+) : message.image ? (
+  <View>
+    <Image
+      source={{ uri: message.image }}
+      style={styles.messageImage}
+    />
+    <Text style={styles.messageTimestamp}>
+      {formatMessageTimestamp(message.timestamp)}
+    </Text>
+  </View>
+) : (
+  <View>
+    {message.fileURL ? ( // Kiểm tra nếu có fileURL thì hiển thị thông tin về file
+      <View
+        style={[styles.fileContainer, { flexDirection: "row" }]}
+      >
+        <Text style={styles.fileName}>{message.fileName}</Text>
+        <Pressable
+          style={{ marginLeft: 5 }}
+          onPress={() =>
+            handleFileDownload(message.fileURL, message.fileName)
+          }
+        >
+          <Icon name="download" size={20} color="black" />
+        </Pressable>
+      </View>
+    ) : null}
+    {message.content && ( // Hiển thị nội dung tin nhắn văn bản nếu có
+      <View>
+        <Text style={styles.messageText}>{message.content}</Text>
+        <Text style={styles.messageTimestamp}>
+          {formatMessageTimestamp(message.timestamp)}
+        </Text>
+      </View>
+    )}
+  </View>
             )}
           </Pressable>
         ))}

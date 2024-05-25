@@ -51,6 +51,8 @@ const HomeScreen = ({ navigation, route }) => {
   const [boxChatData, setBoxChatData] = useState(null);
   const [boxChatGroupData, setBoxChatGroupData] = useState(null);
   const [sentRequests, setSentRequests] = useState({});
+  const bucketName =S3_BUCKET_NAME
+  const [fileType, setFileType] = useState("");
   const closeBoxChat = () => {
     // Đóng hộp thoại
     setBoxChatData(null);
@@ -69,7 +71,7 @@ const HomeScreen = ({ navigation, route }) => {
   const addFriend = async (friendPhoneNumber) => {
     try {
       const params = {
-        TableName: "FriendRequest",
+        TableName: "FriendRequests",
         Key: { email: email },
         UpdateExpression:
           "SET friendRequests = list_append(if_not_exists(friendRequests, :empty_list), :request)",
@@ -142,7 +144,87 @@ const HomeScreen = ({ navigation, route }) => {
     });
 
     if (!result.cancelled) {
-      setAvatarUri(result.uri);
+      // setAvatarUri(result.uri);
+      setAvatarUri(result.assets[0].uri);
+
+              // Xác định fileType từ tên file
+              const image = result.assets[0].uri.split(".");
+              const fileType = image[image.length - 1];
+              setFileType(fileType);
+              uploadAvatar(result.assets[0].uri);
+    }
+  };
+  const uploadAvatar = async (avatarUri) => {
+    try {
+      let contentType = "";
+      switch (fileType) {
+        case "jpg":
+        case "jpeg":
+          contentType = "image/jpeg";
+          break;
+        case "png":
+          contentType = "image/png";
+          break;
+        case "gif":
+          contentType = "image/gif";
+          break;
+        default:
+          contentType = "application/octet-stream"; // Loại mặc định
+      }
+      const response = await fetch(avatarUri);
+      const blob = await response.blob();
+      const filePath = `${user?.email}_${Date.now().toString()}.${fileType}`;
+
+      const s3 = new S3({
+        region: REGION,
+        accessKeyId: ACCESS_KEY_ID,
+        secretAccessKey: SECRET_ACCESS_KEY,
+      });
+
+      const paramsS3 = {
+        Bucket: S3_BUCKET_NAME,
+        Key: filePath,
+        Body: blob,
+        ContentType: contentType,
+        ContentLength: blob.size,
+      };
+
+      const data = await s3.upload(paramsS3).promise();
+      updateUserAvatar(data.Location);
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      alert("Error", "Failed to upload avatar");
+    }
+  };
+
+  const updateUserAvatar = async (avatarUrl) => {
+    try {
+      const dynamoDB = new DynamoDB.DocumentClient({
+        region: REGION,
+        accessKeyId: ACCESS_KEY_ID,
+        secretAccessKey: SECRET_ACCESS_KEY,
+      });
+
+      const paramsDynamoDb = {
+        TableName: "Users",
+        Key: { email: user.email },
+        UpdateExpression: "set avatarUser = :avatar",
+        ExpressionAttributeValues: {
+          ":avatar": avatarUrl,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+
+      // Cập nhật đường dẫn avatar mới trong cơ sở dữ liệu DynamoDB
+      await dynamoDB.update(paramsDynamoDb).promise();
+
+      // Cập nhật đường dẫn avatar mới trong state avatarUri
+      setAvatarUri(avatarUrl);
+
+      alert("Avatar đã được cập nhật!");
+    } catch (error) {
+      console.error("Error updating user data:", error);
+      alert("Error", "Failed to update user data");
     }
   };
 
@@ -154,39 +236,6 @@ const HomeScreen = ({ navigation, route }) => {
         return;
       }
   
-      let avatarUrl = user.avatarUser; // Giữ nguyên avatarUrl nếu không có hình ảnh mới
-  
-      // Nếu có hình ảnh mới được chọn, upload lên S3
-      if (avatarUri) {
-        const file = {
-          uri: avatarUri,
-          name: "avatar.jpg",
-          type: "image/jpeg/png/jfif/jpg",
-        };
-        const data = await fetch(avatarUri);
-        const blob = await data.blob();
-        const uploadParams = {
-          Bucket: "longs3",
-          Key: "avatar_" + new Date().getTime() + ".jpg",
-          Body: blob,
-          ContentType: "image/jpeg",
-          ACL: "public-read",
-        };
-        const s3 = new S3({
-          region: REGION,
-          accessKeyId: ACCESS_KEY_ID,
-          secretAccessKey: SECRET_ACCESS_KEY,
-        });
-        const response = await s3.upload(uploadParams).promise();
-  
-        if (!response.Location) {
-          console.error("Failed to upload image to S3", response);
-          return;
-        }
-  
-        console.log("Successfully uploaded image to S3", response.Location);
-        avatarUrl = response.Location;
-      }
   
       // Cập nhật thông tin người dùng
       const params = {
@@ -195,10 +244,10 @@ const HomeScreen = ({ navigation, route }) => {
           email: user.email,
         },
         UpdateExpression:
-          "SET hoTen = :hoTen, avatarUser = :avatarUrl, ngaySinh = :ngaySinh, gioiTinh = :gioiTinh, soDienThoai = :soDienThoai",
+          "SET hoTen = :hoTen, ngaySinh = :ngaySinh, gioiTinh = :gioiTinh, soDienThoai = :soDienThoai",
         ExpressionAttributeValues: {
           ":hoTen": username,
-          ":avatarUrl": avatarUrl,
+          
           ":ngaySinh": birthday,
           ":gioiTinh": gender,
           ":soDienThoai": phoneUser,
