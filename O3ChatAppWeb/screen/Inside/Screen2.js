@@ -27,94 +27,188 @@ const Screen2 = ({ showGroupChatInRightBar, user, showBoxChatInRightBar }) => {
     fetchData();
   }, []);
 
+  // const fetchData = async () => {
+  //   try {
+  //     // Lấy danh sách bạn bè của người dùng hiện tại
+  //     const friendsParams = {
+  //       TableName: "Friends",
+  //       Key: { senderEmail: user.email },
+  //     };
+  //     const friendData = await dynamoDB.get(friendsParams).promise();
+  //     const friendsList =
+  //       friendData.Item && friendData.Item.friends
+  //         ? friendData.Item.friends
+  //         : [];
+
+  //     // Lấy tất cả các hộp thoại mà người dùng đã tham gia
+  //     const allChats = [];
+  //     for (const friend of friendsList) {
+  //       // Lấy tất cả các hộp thoại của người bạn
+  //       const senderChatParams = {
+  //         TableName: "BoxChats",
+  //         KeyConditionExpression: "senderEmail = :sender",
+  //         ExpressionAttributeValues: {
+  //           ":sender": `${user.email}_${friend.email}`,
+  //         },
+  //       };
+  //       const senderChatData = await dynamoDB.query(senderChatParams).promise();
+  //       allChats.push(...senderChatData.Items);
+
+  //       const receiverChatParams = {
+  //         TableName: "BoxChats",
+  //         KeyConditionExpression: "senderEmail = :sender",
+  //         ExpressionAttributeValues: {
+  //           ":sender": `${friend.email}_${user.email}`,
+  //         },
+  //       };
+  //       const receiverChatData = await dynamoDB
+  //         .query(receiverChatParams)
+  //         .promise();
+  //       allChats.push(...receiverChatData.Items);
+  //     }
+  //     // Lọc tin nhắn gần nhất từ mỗi hộp thoại của mỗi người bạn
+  //     const latestMessages = {};
+  //     for (const friend of friendsList) {
+  //       const friendChats = allChats.filter((chat) =>
+  //         chat.senderEmail.includes(friend.email)
+  //       );
+  //       if (friendChats.length > 0) {
+  //         const latestChat = friendChats.reduce((prev, current) =>
+  //           new Date(prev.createdAt) > new Date(current.createdAt)
+  //             ? prev
+  //             : current
+  //         );
+  //         const latestMessage =
+  //           latestChat.messages.length > 0
+  //             ? latestChat.messages[latestChat.messages.length - 1]
+  //             : null;
+
+  //         // Nếu tin nhắn cuối cùng tồn tại
+  //         if (latestMessage) {
+  //           // Kiểm tra nếu là hình ảnh
+  //           if (
+  //             typeof latestMessage.content === "string" &&
+  //             latestMessage.content.startsWith("http")
+  //           ) {
+  //             latestMessage.content = "Hình ảnh";
+  //           } else if (latestMessage.fileURL) {
+  //             // Nếu là tệp
+  //             latestMessage.content = "File";
+  //           }
+
+  //           latestMessages[friend.email] = latestMessage;
+  //         }
+  //       }
+  //     }
+
+  //     // Lọc danh sách bạn bè chỉ hiển thị những người có tin nhắn gần đây
+  //     const filteredFriends = friendsList.filter(
+  //       (friend) => latestMessages[friend.email]
+  //     );
+
+  //     // Cập nhật state cho danh sách bạn bè, tất cả các hộp thoại và tin nhắn gần nhất
+  //     setFriends(filteredFriends);
+  //     setAllChats(allChats);
+  //     setLatestMessages(latestMessages);
+  //   } catch (error) {
+  //     console.error("Error fetching data:", error);
+  //   }
+  // };
   const fetchData = async () => {
     try {
-      // Lấy danh sách bạn bè của người dùng hiện tại
-      const friendsParams = {
+      // Lấy danh sách bạn bè của người dùng hiện tại từ bảng "Friends"
+      const getFriendsParams = {
         TableName: "Friends",
-        Key: { senderEmail: user.email },
+        Key: { senderEmail: user?.email },
       };
-      const friendData = await dynamoDB.get(friendsParams).promise();
-      const friendsList =
-        friendData.Item && friendData.Item.friends
-          ? friendData.Item.friends
-          : [];
-
-      // Lấy tất cả các hộp thoại mà người dùng đã tham gia
-      const allChats = [];
-      for (const friend of friendsList) {
-        // Lấy tất cả các hộp thoại của người bạn
-        const senderChatParams = {
-          TableName: "BoxChats",
-          KeyConditionExpression: "senderEmail = :sender",
-          ExpressionAttributeValues: {
-            ":sender": `${user.email}_${friend.email}`,
-          },
-        };
-        const senderChatData = await dynamoDB.query(senderChatParams).promise();
-        allChats.push(...senderChatData.Items);
-
-        const receiverChatParams = {
-          TableName: "BoxChats",
-          KeyConditionExpression: "senderEmail = :sender",
-          ExpressionAttributeValues: {
-            ":sender": `${friend.email}_${user.email}`,
-          },
-        };
-        const receiverChatData = await dynamoDB
-          .query(receiverChatParams)
-          .promise();
-        allChats.push(...receiverChatData.Items);
-      }
-      // Lọc tin nhắn gần nhất từ mỗi hộp thoại của mỗi người bạn
-      const latestMessages = {};
-      for (const friend of friendsList) {
-        const friendChats = allChats.filter((chat) =>
-          chat.senderEmail.includes(friend.email)
-        );
-        if (friendChats.length > 0) {
-          const latestChat = friendChats.reduce((prev, current) =>
-            new Date(prev.createdAt) > new Date(current.createdAt)
-              ? prev
-              : current
-          );
-          const latestMessage =
-            latestChat.messages.length > 0
-              ? latestChat.messages[latestChat.messages.length - 1]
-              : null;
-
-          // Nếu tin nhắn cuối cùng tồn tại
-          if (latestMessage) {
-            // Kiểm tra nếu là hình ảnh
-            if (
-              typeof latestMessage.content === "string" &&
-              latestMessage.content.startsWith("http")
-            ) {
-              latestMessage.content = "Hình ảnh";
-            } else if (latestMessage.fileURL) {
-              // Nếu là tệp
-              latestMessage.content = "File";
-            }
-
-            latestMessages[friend.email] = latestMessage;
+      const friendData = await dynamoDB.get(getFriendsParams).promise();
+  
+      if (friendData.Item && friendData.Item.friends) {
+        const friendEmails = friendData.Item.friends.map((friend) => friend.email);
+  
+        // Mảng để lưu trữ chi tiết của bạn bè
+        const friendDetails = [];
+  
+        // Lấy chi tiết từng bạn bè từ bảng "Users"
+        for (const friendEmail of friendEmails) {
+          const getUserParams = {
+            TableName: "Users",
+            Key: { email: friendEmail },
+          };
+          const userData = await dynamoDB.get(getUserParams).promise();
+  
+          if (userData.Item) {
+            friendDetails.push(userData.Item);
           }
         }
+  
+        // Lấy tất cả các hộp thoại mà người dùng đã tham gia
+        const allChats = [];
+        for (const friend of friendDetails) {
+          const senderChatParams = {
+            TableName: "BoxChats",
+            KeyConditionExpression: "senderEmail = :sender",
+            ExpressionAttributeValues: {
+              ":sender": `${user.email}_${friend.email}`,
+            },
+          };
+          const senderChatData = await dynamoDB.query(senderChatParams).promise();
+          allChats.push(...senderChatData.Items);
+  
+          const receiverChatParams = {
+            TableName: "BoxChats",
+            KeyConditionExpression: "senderEmail = :sender",
+            ExpressionAttributeValues: {
+              ":sender": `${friend.email}_${user.email}`,
+            },
+          };
+          const receiverChatData = await dynamoDB.query(receiverChatParams).promise();
+          allChats.push(...receiverChatData.Items);
+        }
+  
+        // Lọc tin nhắn gần nhất từ mỗi hộp thoại của mỗi người bạn
+        const latestMessages = {};
+        for (const friend of friendDetails) {
+          const friendChats = allChats.filter((chat) => chat.senderEmail.includes(friend.email));
+          if (friendChats.length > 0) {
+            const latestChat = friendChats.reduce((prev, current) =>
+              new Date(prev.createdAt) > new Date(current.createdAt) ? prev : current
+            );
+            const latestMessage = latestChat.messages.length > 0 ? latestChat.messages[latestChat.messages.length - 1] : null;
+  
+            // Nếu tin nhắn cuối cùng tồn tại
+            if (latestMessage) {
+              // Kiểm tra nếu là hình ảnh
+              if (typeof latestMessage.content === "string" && latestMessage.content.startsWith("http")) {
+                latestMessage.content = "Hình ảnh";
+              } else if (latestMessage.fileURL) {
+                // Nếu là tệp
+                latestMessage.content = "File";
+              }
+  
+              latestMessages[friend.email] = latestMessage;
+            }
+          }
+        }
+  
+        // Lọc danh sách bạn bè chỉ hiển thị những người có tin nhắn gần đây
+        const filteredFriends = friendDetails.filter((friend) => latestMessages[friend.email]);
+  
+        // Cập nhật state cho danh sách bạn bè, tất cả các hộp thoại và tin nhắn gần nhất
+        setFriends(filteredFriends);
+        setAllChats(allChats);
+        setLatestMessages(latestMessages);
+      } else {
+        // Nếu không có bạn bè, thiết lập danh sách bạn bè rỗng
+        setFriends([]);
+        setAllChats([]);
+        setLatestMessages({});
       }
-
-      // Lọc danh sách bạn bè chỉ hiển thị những người có tin nhắn gần đây
-      const filteredFriends = friendsList.filter(
-        (friend) => latestMessages[friend.email]
-      );
-
-      // Cập nhật state cho danh sách bạn bè, tất cả các hộp thoại và tin nhắn gần nhất
-      setFriends(filteredFriends);
-      setAllChats(allChats);
-      setLatestMessages(latestMessages);
     } catch (error) {
       console.error("Error fetching data:", error);
     }
   };
-
+  
   const handleChatWithFriend = async (friend, user) => {
     try {
       if (!user || !user.email) {

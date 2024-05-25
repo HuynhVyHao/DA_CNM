@@ -25,40 +25,68 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
-
-  const fetchUser = async () => {
-    try {
-      // Replace "YOUR_USER_ID" with the actual user ID or key
-      const params = {
-        TableName: "Users",
-        Key: { email: user.email },
-      };
-      const userData = await dynamoDB.get(params).promise();
-      if (userData && userData.Item) {
-        setUser(userData.Item);
-      }
-    } catch (error) {
-      console.error("Error fetching user:", error);
-    }
-  };
-
+  
+  // const fetchUser = async () => {
+  //   try {
+  //     // Replace "YOUR_USER_ID" with the actual user ID or key
+  //     const params = {
+  //       TableName: "Users",
+  //       Key: { email: user.email },
+  //     };
+  //     const userData = await dynamoDB.get(params).promise();
+  //     if (userData && userData.Item) {
+  //       setUser(userData.Item);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching user:", error);
+  //   }
+  // };
+  
   const fetchFriends = async () => {
     try {
-      const params = {
+      const getFriendsParams = {
         TableName: "Friends",
-        Key: { senderEmail: user.email },
+        Key: { senderEmail: user?.email }, // Assuming user is defined somewhere
       };
-      const friendData = await dynamoDB.get(params).promise();
+      const friendData = await dynamoDB.get(getFriendsParams).promise();
+
       if (friendData.Item && friendData.Item.friends) {
-        setFriends(friendData.Item.friends);
+        const friendEmails = friendData.Item.friends.map(
+          (friend) => friend.email
+        );
+
+        // Array to store friend details
+        const friendDetails = [];
+
+        // Loop through friend emails
+        for (const friendEmail of friendEmails) {
+          // Get friend's details from Users table
+          const getUserParams = {
+            TableName: "Users",
+            Key: { email: friendEmail },
+          };
+          const userData = await dynamoDB.get(getUserParams).promise();
+
+          // If user data exists, push it to friendDetails array
+          if (userData.Item) {
+            friendDetails.push(userData.Item);
+          }
+        }
+
+        // Now friendDetails array contains details of all friends
+        // Set friends with the details from Users table
+        setFriends(friendDetails);
       } else {
+        // If no friends found, set friends to an empty array
         setFriends([]);
       }
     } catch (error) {
-      console.error("Error fetching friends:", error);
+      console.error("Error fetching friends data:", error);
     }
   };
 
+  
+  
   const fetchFriendRequests = async () => {
     try {
       const getFriendRequestsParams = {
@@ -305,9 +333,9 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
       fetchFriendRequests();
     }, [navigation])
   );
-  useEffect(() => {
-    fetchUser();
-  }, []);
+  // useEffect(() => {
+  //   fetchUser();
+  // }, []);
   // Rest of your code
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -414,9 +442,9 @@ const FriendScreen = ({ navigation, user, showBoxChatInRightBar }) => {
               >
                 <Image
                   style={styles.avatarImage}
-                  source={{ uri: friends.avatarUser }}
+                  source={{ uri: friend.avatarUser }}
                 />
-                <Text style={styles.txtUser}>{friends.hoTen}</Text>
+                <Text style={styles.txtUser}>{friend.hoTen}</Text>
               </Pressable>
             ))
           ) : (

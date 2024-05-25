@@ -9,7 +9,7 @@ import {
   TextInput,
   Keyboard,
   Image,
-  Modal,
+  Modal
 } from "react-native";
 import { DynamoDB, S3 } from "aws-sdk";
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION, S3_BUCKET_NAME } from "@env";
@@ -23,6 +23,7 @@ const GroupChats = ({ user, onClose, group }) => {
   const [newMessage, setNewMessage] = useState("");
   const scrollViewRef = useRef(null);
   const textInputRef = useRef(null);
+  const [groups,setGroup]=useState(group);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedMessageIndex, setSelectedMessageIndex] = useState(null);
@@ -30,7 +31,12 @@ const GroupChats = ({ user, onClose, group }) => {
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedGroupID, setSelectedGroupID] = useState(null);
-
+  const [isOptionsVisible, setIsOptionsVisible] = useState(false);
+  const [isModalDeleteGroup,setIsModalDeleteGroup]=useState(false);
+  const [isAddMemberModalVisible, setIsAddMemberModalVisible] = useState(false);
+  const [selectedFriends, setSelectedFriends] = useState({});
+  const [friendsNotInGroup, setFriendsNotInGroup] = useState([]);
+  const [friendsInGroup, setFriendsInGroup] = useState([]);
   const s3 = new S3({
     accessKeyId: ACCESS_KEY_ID,
     secretAccessKey: SECRET_ACCESS_KEY,
@@ -46,7 +52,388 @@ const GroupChats = ({ user, onClose, group }) => {
   const handleClose = () => {
     onClose();
   };
+   // Trong hàm renderOptions:
+   const renderOptions = () => {
+    // Sắp xếp danh sách friendsInGroup để đưa Trưởng nhóm lên đầu
+    const sortedFriendsInGroup = [...friendsInGroup].sort((a, b) => {
+      if (groups.roles[a.email] === "Trưởng nhóm") return -1;
+      if (groups.roles[b.email] === "Trưởng nhóm") return 1;
+      return 0;
+    });
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isOptionsVisible}
+        onRequestClose={() => setIsOptionsVisible(false)}
+      >
+        <View style={styles.optionsContainer}>
+          <View style={styles.membersContainer}>
+            <Text style={styles.memberHeaderText}>Thành viên trong nhóm:</Text>
+            <ScrollView>
+              {sortedFriendsInGroup.length > 0 ? (
+                sortedFriendsInGroup.map((friend, index) => (
+                  <View key={index} style={styles.infoMenu}>
+                    <Pressable
+                      style={styles.checkboxContainer}
+                      onPress={() => toggleFriendSelection(friend.email)}
+                    >
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            backgroundColor: selectedFriends[friend.email]
+                              ? "black"
+                              : "transparent",
+                          },
+                        ]}
+                      >
+                        {selectedFriends[friend.email] && (
+                          <Icon name="check" size={18} color="white" />
+                        )}
+                      </View>
+                    </Pressable>
+                    <Image
+                      style={styles.avatarImage}
+                      source={{ uri: friend.avatarUser }}
+                    />
+                    <View style={styles.userInfo}>
+                      <Text style={styles.txtUser}>{friend.hoTen}</Text>
+                      <Text style={styles.txtRole}>
+                        {groups.roles[friend.email]}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.txtUser}>Không có bạn bè</Text>
+              )}
+            </ScrollView>
+          
 
+          <Pressable style={styles.optionItem} onPress={openAddMemberModal}>
+            <Text style={styles.optionText}>Thêm thành viên</Text>
+          </Pressable>
+          <Pressable
+            style={styles.optionItem}
+            onPress={handleDeleteSelectedMembers}
+          >
+            <Text style={styles.optionText}>Xóa thành viên</Text>
+          </Pressable>
+          <Pressable style={styles.optionItem} onPress={leaveGroup}>
+            <Text style={styles.optionText}>Rời nhóm</Text>
+          </Pressable>
+          <Pressable style={styles.optionItem} onPress={handleDeleteGroup}>
+            <Text style={styles.optionText}>Giải tán nhóm</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setIsOptionsVisible(false)}
+            style={styles.cancelButton}
+          >
+            <Text style={styles.cancelButtonText}>Hủy</Text>
+          </Pressable>
+        </View>
+        </View>
+      </Modal>
+    );
+  };
+  const addSelectedMembersToGroup = async () => {
+    try {
+      const selectedMembers = Object.keys(selectedFriends).filter(
+        (email) => selectedFriends[email]
+      );
+      if (selectedMembers.length === 0) {
+        console.log("No members selected.");
+        return;
+      }
+
+      const updatedGroupMembers = [...groups.members, ...selectedMembers];
+      const updatedGroupRoles = { ...groups.roles };
+
+      selectedMembers.forEach((email) => {
+        updatedGroupRoles[email] = "Thành viên";
+      });
+
+      const params = {
+        TableName: "GroupChats",
+        Key: {
+          groupId: `${groups.groupId}`,
+        },
+        UpdateExpression: "SET members = :members, #roles = :roles",
+        ExpressionAttributeNames: {
+          "#roles": "roles",
+        },
+        ExpressionAttributeValues: {
+          ":members": updatedGroupMembers,
+          ":roles": updatedGroupRoles,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await dynamoDB.update(params).promise();
+
+      setGroup((prevGroup) => ({
+        ...prevGroup,
+        members: updatedGroupMembers,
+        roles: updatedGroupRoles,
+      }));
+
+      setIsAddMemberModalVisible(false);
+    } catch (error) {
+      console.error("Error adding members to groups:", error);
+    }
+  };
+   // Hàm xử lý khi người dùng chọn "Rời nhóm"
+   const leaveGroup = async () => {
+    
+    try {
+      if(isGroupLeader){
+        alert("Bạn phải chuyển quyền trưởng nhóm!")
+        return;
+      }
+      // Loại bỏ người dùng ra khỏi danh sách thành viên của nhóm
+      const updatedGroupMembers = groups.members.filter(
+        (member) => member !== user.email
+      );
+
+      // Loại bỏ người dùng ra khỏi danh sách vai trò của nhóm
+      const updatedGroupRoles = { ...groups.roles };
+      delete updatedGroupRoles[user.email];
+
+      // Cập nhật dữ liệu trong cơ sở dữ liệu
+      const params = {
+        TableName: "GroupChats",
+        Key: {
+          groupId: groups.groupId,
+        },
+        UpdateExpression: "SET members = :members, #r = :roles",
+        ExpressionAttributeValues: {
+          ":members": updatedGroupMembers,
+          ":roles": updatedGroupRoles,
+        },
+        ExpressionAttributeNames: {
+          "#r": "roles",
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await dynamoDB.update(params).promise();
+
+      // Cập nhật state của nhóm để loại bỏ người dùng ra khỏi danh sách thành viên và vai trò
+      setGroup((prevGroup) => ({
+        ...prevGroup,
+        members: updatedGroupMembers,
+        roles: updatedGroupRoles,
+      }));
+
+      // Đóng modal sau khi rời nhóm thành công
+      setIsOptionsVisible(false);
+      navigation.goBack();
+      // Thực hiện các hành động cần thiết sau khi rời nhóm thành công
+      // Ví dụ: hiển thị thông báo, cập nhật giao diện người dùng, v.v.
+    } catch (error) {
+      console.error("Error leaving groups:", error);
+      // Xử lý lỗi cụ thể ở đây, ví dụ: hiển thị thông báo lỗi cho người dùng
+    }
+  };
+ // Hàm kiểm tra vai trò của người dùng
+  const isGroupLeader = () => {
+    return groups.roles && groups.roles[user.email] === "Trưởng nhóm";
+  };
+  // Hàm xóa thành viên khỏi nhóm trong DynamoDB
+  const deleteMembersFromGroup = async (selectedEmails) => {
+    try {
+      // Tạo một bản cập nhật để loại bỏ các thành viên đã chọn khỏi nhóm
+      const updatedGroupMembers = groups.members.filter(
+        (member) => !selectedEmails.includes(member)
+      );
+
+      // Cập nhật danh sách thành viên của nhóm trong DynamoDB
+      const params = {
+        TableName: "GroupChats", // Thay thế bằng tên bảng của bạn
+        Key: {
+          groupId: `${groups.groupId}`, // Sử dụng groupId của nhóm cần cập nhật
+        },
+        UpdateExpression: "SET members = :members",
+        ExpressionAttributeValues: {
+          ":members": updatedGroupMembers,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await dynamoDB.update(params).promise();
+
+      // Cập nhật state của nhóm để hiển thị người dùng mới
+      setGroup((prevGroup) => ({
+        ...prevGroup,
+        members: updatedGroupMembers,
+      }));
+
+      // Đóng modal sau khi xóa thành viên thành công
+      setIsOptionsVisible(false);
+
+      // Thực hiện các hành động cần thiết khác sau khi xóa thành viên
+      // Ví dụ: hiển thị thông báo, cập nhật giao diện người dùng, v.v.
+    } catch (error) {
+      console.error("Error deleting members from groups:", error);
+      // Xử lý lỗi cụ thể ở đây, ví dụ: hiển thị thông báo lỗi cho người dùng
+    }
+  };
+// Hàm xử lý khi nhấn nút "Xóa thành viên"
+  const handleDeleteSelectedMembers = () => {
+    if (isGroupLeader()) {
+      const selectedEmails = Object.keys(selectedFriends).filter(
+        (email) => selectedFriends[email]
+      );
+
+      if (selectedEmails.length === 0) {
+        alert("Vui lòng chọn ít nhất một thành viên để xóa");
+        return;
+      }
+
+      // Gọi hàm xóa thành viên khỏi nhóm
+      deleteMembersFromGroup(selectedEmails);
+    } else {
+      alert("Bạn không có quyền thực hiện hành động này.");
+    }
+  };
+  const openAddMemberModal = () => {
+    setIsAddMemberModalVisible(true);
+    fetchFriendsNotInGroup();
+  };
+  const toggleFriendSelection = (email) => {
+    setSelectedFriends((prevSelectedFriends) => ({
+      ...prevSelectedFriends,
+      [email]: !prevSelectedFriends[email],
+    }));
+  };
+  // Hàm đóng modal
+  const closeAddMemberModal = () => {
+    setIsAddMemberModalVisible(false);
+  };
+  const handleDeleteGroup = () => {
+    if (isGroupLeader()) {
+     setIsModalDeleteGroup(true);
+            
+    } else {
+      alert("Bạn không có quyền thực hiện hành động này.");
+    }
+  };
+  const DeleteGroup = async  ()=>{
+    try {
+      // Thực hiện logic xóa nhóm trên AWS
+      const params = {
+        TableName: "GroupChats", // Thay thế bằng tên bảng của bạn
+        Key: {
+          groupId: `${groups.groupId}`, // Sử dụng groupId của nhóm cần xóa
+        },
+      };
+      await dynamoDB.delete(params).promise();
+
+      // Chuyển người dùng trở lại màn hình trước đó sau khi xóa nhóm thành công
+      setIsModalDeleteGroup(false);
+    } catch (error) {
+      console.error("Error deleting groups:", error);
+    }
+  };
+  const fetchFriendsNotInGroup = async () => {
+    try {
+      if (!user?.email || !groups?.groupId) {
+        console.error("User email or groups ID is not defined.");
+        return;
+      }
+
+      const getFriendsParams = {
+        TableName: "Friends",
+        Key: { senderEmail: user.email },
+      };
+      const friendData = await dynamoDB.get(getFriendsParams).promise();
+
+      if (friendData.Item && friendData.Item.friends) {
+        const existingGroupMemberEmails = groups.members.map((member) => member);
+        const friendEmails = friendData.Item.friends
+          .filter(friend => !existingGroupMemberEmails.includes(friend.email))
+          .map(friend => friend.email);
+
+        // Array to store friend details
+        const friendDetails = [];
+
+        // Loop through friend emails
+        for (const friendEmail of friendEmails) {
+          // Get friend's details from Users table
+          const getUserParams = {
+            TableName: "Users",
+            Key: { email: friendEmail },
+          };
+          const userData = await dynamoDB.get(getUserParams).promise();
+
+          // If user data exists, push it to friendDetails array
+          if (userData.Item) {
+            friendDetails.push(userData.Item);
+          }
+        }
+
+        // Truy vấn cơ sở dữ liệu để lấy vai trò của các bạn trong nhóm
+        const getRolesParams = {
+          TableName: "GroupChats",
+          Key: { groupId: groups.groupId },
+        };
+        const groupData = await dynamoDB.get(getRolesParams).promise();
+
+        if (groupData.Item && groupData.Item.roles) {
+          // Duyệt qua danh sách bạn mới thêm vào và thiết lập vai trò cho họ
+          const friendsWithRoles = friendDetails.map((friend) => ({
+            ...friend,
+            role: groupData.Item.roles[friend.email] || "Thành viên",
+          }));
+          setFriendsNotInGroup(friendsWithRoles);
+        } else {
+          // Nếu không tìm thấy dữ liệu về vai trò, mặc định vai trò của các bạn là "Thành viên"
+          const friendsWithRoles = friendDetails.map((friend) => ({
+            ...friend,
+            role: "Thành viên",
+          }));
+          setFriendsNotInGroup(friendsWithRoles);
+        }
+      } else {
+        setFriendsNotInGroup([]);
+      }
+    } catch (error) {
+      console.error("Error fetching friends:", error);
+      // Xử lý lỗi cụ thể ở đây, ví dụ: hiển thị thông báo lỗi cho người dùng
+    }
+  };
+
+  const fetchFriendsInGroup = async () => {
+    try {
+      if (!user?.email) {
+        console.error("User email is not defined.");
+        return;
+      }
+
+      const getUsersParams = {
+        TableName: "Users",
+      };
+      const usersData = await dynamoDB.scan(getUsersParams).promise();
+
+      if (usersData.Items) {
+        const allUsers = usersData.Items;
+        const groupMemberEmails = groups.members;
+        const friendsInGroup = allUsers.filter((user) =>
+          groupMemberEmails.includes(user.email)
+        );
+        setFriendsInGroup(friendsInGroup);
+      } else {
+        setFriendsInGroup([]);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      // Xử lý lỗi cụ thể ở đây, ví dụ: hiển thị thông báo lỗi cho người dùng
+    }
+  };
+
+  useEffect(() => {
+    fetchFriendsInGroup();
+    fetchFriendsNotInGroup();
+  }, [groups]);
   const pickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync();
@@ -324,11 +711,11 @@ const GroupChats = ({ user, onClose, group }) => {
 
   
   useEffect(() => {
-    if (group && group.groupId) {
-      setSelectedGroupID(group.groupId);
-      console.log("GroupId:", group.groupId);
+    if (groups && groups.groupId) {
+      setSelectedGroupID(groups.groupId);
+      console.log("GroupId:", groups.groupId);
     }
-  }, [group]);
+  }, [groups]);
 
   useEffect(() => {
     const intervalId = setInterval(async () => {
@@ -347,7 +734,7 @@ const GroupChats = ({ user, onClose, group }) => {
       const senderParams = {
         TableName: "GroupChats",
         Key: {
-          groupId: `${group.groupId}`,
+          groupId: `${groups.groupId}`,
         },
       };
       const senderResponse = await dynamoDB.get(senderParams).promise();
@@ -399,7 +786,7 @@ const GroupChats = ({ user, onClose, group }) => {
       const senderMessage = { 
         content: imageUrl,
         senderEmail: user.email,
-        groupId: group.groupId,
+        groupId: groups.groupId,
         timestamp: timestamp,
         isSender: true,
       };
@@ -438,7 +825,7 @@ const GroupChats = ({ user, onClose, group }) => {
       const timestamp = new Date().toISOString();
        senderMessage = {
         content: newMessage,
-        groupId: group.groupId,
+        groupId: groups.groupId,
         senderEmail: user.email,
         timestamp: timestamp,
       };
@@ -448,7 +835,7 @@ const GroupChats = ({ user, onClose, group }) => {
           senderMessage = {
             content: imageUrl,
             senderEmail:user,email,
-            groupId: group.groupId,
+            groupId: groups.groupId,
             timestamp: timestamp,
             isSender: true,
           };
@@ -586,15 +973,24 @@ const GroupChats = ({ user, onClose, group }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Image source={{ uri: group.avatarGroup }} style={styles.headerImg} />
-        <Text style={styles.headerText}>{group.groupName}</Text>
+        <Image source={{ uri: groups.avatarGroup }} style={styles.headerImg} />
+        <Text style={styles.headerText}>{groups.groupName}</Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
           <Text style={styles.closeButtonText}>Đóng</Text>
         </Pressable>
+        <Pressable
+          onPress={() => setIsOptionsVisible(true)}
+          style={styles.optionsButton}
+        >
+          <Icon name="ellipsis1" size={25} color="white" />
+        </Pressable>
+        {renderOptions()}
       </View>
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
         ref={scrollViewRef}
+        onScroll={handleScroll} // Xử lý sự kiện scroll
+        scrollEventThrottle={16}
       >
         {messages.map((message, index) => (
           <View key={index}>
@@ -735,6 +1131,88 @@ const GroupChats = ({ user, onClose, group }) => {
           </View>
         ))}
       </ScrollView>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isAddMemberModalVisible}
+        onRequestClose={() => setIsAddMemberModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ScrollView>
+              {friendsNotInGroup.length > 0 ? (
+                friendsNotInGroup.map((friend, index) => (
+                  <Pressable
+                    key={index}
+                    onPress={() => toggleFriendSelection(friend.email)}
+                    style={{ flexDirection: "row", marginTop: 10 }}
+                  >
+                    <View
+                      style={[
+                        styles.checkbox,
+                        {
+                          borderColor: selectedFriends[friend.email]
+                            ? "black"
+                            : "#ccc",
+                        },
+                      ]}
+                    >
+                      {selectedFriends[friend.email] ? (
+                        <Icon name="check" size={18} color="black" />
+                      ) : null}
+                    </View>
+                    <Image
+                      style={styles.avatarImage}
+                      source={{ uri: friend.avatarUser }}
+                    />
+                    <Text style={styles.txtUser}>{friend.hoTen}</Text>
+                  </Pressable>
+                ))
+              ) : (
+                <Text style={styles.txtUser}>Không có bạn bè</Text>
+              )}
+            </ScrollView>
+          </View>
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-around" }}
+          >
+            <Pressable onPress={closeAddMemberModal} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>Đóng</Text>
+            </Pressable>
+            <Pressable
+              onPress={addSelectedMembersToGroup}
+              style={styles.addMemberButton}
+            >
+              <Text style={styles.addMemberButtonText}>Thêm</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalDeleteGroup}
+        onRequestClose={() => setIsModalDeleteGroup(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={{textStyle:"Bold",textSize:30}}>Bạn có chắc muốn giải tán nhóm không?</Text>
+          </View>
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-around" }}
+          >
+            <Pressable onPress={() =>setIsModalDeleteGroup(false)} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>Không</Text>
+            </Pressable>
+            <Pressable
+              onPress={DeleteGroup}
+              style={styles.addMemberButton}
+            >
+              <Text style={styles.addMemberButtonText}>Có</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       <View style={styles.inputContainer}>
         <Pressable onPress={pickFile}>
           <Icon
@@ -801,22 +1279,104 @@ const GroupChats = ({ user, onClose, group }) => {
 export default GroupChats;
 
 const styles = StyleSheet.create({
+  optionsContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '40%',
+    height: '100%',
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 5,
+  },
+  memberHeaderText:{
+    marginLeft:10,
+    fontWeight: 'bold',
+    fontSize:30,
+  },
+  membersContainer: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: 'white',
+  },
+  infoMenu: {
+    width: "100%",
+    height: 65,
+    paddingLeft: 10,
+    backgroundColor: "white",
+    flexDirection: "row",
+    borderColor: "#ccc",
+    alignItems: "center",
+  },
+txtUser: {
+    marginTop: 5,
+    color: "#000",
+    fontSize: 18,
+    marginLeft: 10,
+  },
+txtRole: {
+    marginLeft: 10,
+    fontSize: 12,
+    color: "gray",
+  },
+userInfo: {
+    flexDirection: "column",
+    marginLeft: 10,
+  },
+optionItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+  },
+  optionText: {
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+optionsButton: {
+    position: "absolute",
+    right: 10,
+    top: 10,
+  },
+cancelButton: {
+    marginTop: 10,
+  },
+cancelButtonText: {
+    fontSize: 25,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "red",
+  },
+checkbox: {
+    width: 18,
+    height: 18,
+    borderWidth: 2,
+    borderRadius: 4,
+    justifyContent: "center",
+    alignSelf: "center",
+  },
   messageText: {
     fontSize: 16,
   },
   modalContainer: {
+    top:40,
+    left:500,
+    weight:"40%",
+    height:"50%",
+    position: 'absolute',
     backgroundColor: "#fff",
     borderRadius: 10,
     borderWidth: 1,
-    top: 400,
   },
   modalContent: {
+    flex: 1,
     backgroundColor: "white",
     borderRadius: 10,
     elevation: 5,
     padding: 20,
-    alignSelf: "stretch",
-    flexDirection: "row",
+    justifyContent: 'space-between', // Ensures the footer stays at the bottom
   },
   modalItem: {
     flex: 1, // Sử dụng flex để tin nhắn tự mở rộng theo nội dung của nó
@@ -970,5 +1530,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#000",
     top: 5,
+  },
+  addMemberButton: {
+    backgroundColor: "green",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  addMemberButtonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });

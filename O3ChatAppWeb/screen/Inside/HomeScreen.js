@@ -148,12 +148,14 @@ const HomeScreen = ({ navigation, route }) => {
 
   const updateProfile = async () => {
     try {
+      // Kiểm tra các trường bắt buộc
       if (!username || !birthday || !gender || !phoneUser) {
         alert("Vui lòng điền đầy đủ thông tin");
         return;
       }
+  
       let avatarUrl = user.avatarUser; // Giữ nguyên avatarUrl nếu không có hình ảnh mới
-
+  
       // Nếu có hình ảnh mới được chọn, upload lên S3
       if (avatarUri) {
         const file = {
@@ -162,7 +164,6 @@ const HomeScreen = ({ navigation, route }) => {
           type: "image/jpeg/png/jfif/jpg",
         };
         const data = await fetch(avatarUri);
-        console.log("data", data);
         const blob = await data.blob();
         const uploadParams = {
           Bucket: "longs3",
@@ -177,15 +178,17 @@ const HomeScreen = ({ navigation, route }) => {
           secretAccessKey: SECRET_ACCESS_KEY,
         });
         const response = await s3.upload(uploadParams).promise();
-
+  
         if (!response.Location) {
           console.error("Failed to upload image to S3", response);
           return;
         }
-
+  
         console.log("Successfully uploaded image to S3", response.Location);
         avatarUrl = response.Location;
       }
+  
+      // Cập nhật thông tin người dùng
       const params = {
         TableName: "Users",
         Key: {
@@ -209,6 +212,7 @@ const HomeScreen = ({ navigation, route }) => {
       alert("Có lỗi xảy ra khi cập nhật thông tin");
     }
   };
+  
   return (
     <LinearGradient colors={["#4AD8C7", "#B728A9"]} style={styles.background}>
       <View style={styles.container}>
