@@ -53,7 +53,7 @@ const PhoneAuthScreen = ({ route, navigation }) => {
   const handleVerify = async () => {
     try {
       const otpCode = otp.join("");
-      const response = await fetch("http://192.168.1.41:3000/verify-otp", {
+      const response = await fetch("http://192.168.1.22:3000/verify-otp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

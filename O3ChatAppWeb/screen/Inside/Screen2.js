@@ -410,13 +410,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
   },
-  // infoMenu: {
-  //   flexDirection: "row",
-  //   borderColor: "#ccc",
-  //   alignItems: "center",
-  //   paddingHorizontal: 10,
-  //   paddingVertical: 15,
-  // },
+ 
 
   txtGroup: {
     color: "#000",
